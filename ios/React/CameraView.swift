@@ -61,6 +61,9 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
   @objc var torch = "off"
   @objc var zoom: NSNumber = 1.0 // in "factor"
   @objc var exposure: NSNumber = 0.0
+  @objc var autoWhiteBalance = true
+  @objc var autoExposure = true
+  @objc var whiteBalanceTemperature: NSNumber?
   @objc var videoStabilizationMode: NSString?
   @objc var resizeMode: NSString = "cover" {
     didSet {
@@ -263,12 +266,15 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
       config.maxFps = maxFps?.int32Value
       config.enableLowLightBoost = lowLightBoost
       config.torch = try Torch(jsValue: torch)
+      config.autoWhiteBalance = autoWhiteBalance
+      config.autoExposure = autoExposure
+      config.whiteBalanceTemperature = whiteBalanceTemperature?.floatValue
+      config.exposure = autoExposure ? exposure.floatValue : nil
 
       // Zoom
       config.zoom = zoom.doubleValue
 
-      // Exposure
-      config.exposure = exposure.floatValue
+      // Exposure configured in side-props to avoid forcing auto-exposure when locked.
 
       // isActive
       config.isActive = isActive

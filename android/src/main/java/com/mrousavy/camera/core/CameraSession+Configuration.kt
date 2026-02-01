@@ -1,7 +1,12 @@
 package com.mrousavy.camera.core
 
 import android.annotation.SuppressLint
+import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.params.ColorSpaceTransform
+import android.hardware.camera2.params.RggbChannelVector
 import android.util.Log
+import androidx.camera.camera2.interop.Camera2CameraControl
+import androidx.camera.camera2.interop.CaptureRequestOptions
 import androidx.annotation.OptIn
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.CameraState
@@ -23,6 +28,9 @@ import com.mrousavy.camera.core.types.CameraDeviceFormat
 import com.mrousavy.camera.core.types.Torch
 import com.mrousavy.camera.core.types.VideoStabilizationMode
 import com.mrousavy.camera.core.utils.CamcorderProfileUtils
+import kotlin.math.ln
+import kotlin.math.max
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
 private fun assertFormatRequirement(
@@ -39,6 +47,52 @@ private fun assertFormatRequirement(
   if (!isSupported) {
     throw throwIfNotMet
   }
+}
+
+private const val MIN_WHITE_BALANCE_KELVIN = 1000.0
+private const val MAX_WHITE_BALANCE_KELVIN = 40000.0
+private const val MAX_WB_GAIN = 8.0
+
+private val IDENTITY_COLOR_TRANSFORM = ColorSpaceTransform(
+  intArrayOf(
+    1, 1, 0, 1, 0, 1,
+    0, 1, 1, 1, 0, 1,
+    0, 1, 0, 1, 1, 1
+  )
+)
+
+private fun kelvinToRgb(temperature: Double): Triple<Double, Double, Double> {
+  val temp = temperature.coerceIn(MIN_WHITE_BALANCE_KELVIN, MAX_WHITE_BALANCE_KELVIN) / 100.0
+  val r: Double
+  val g: Double
+  val b: Double
+  if (temp <= 66.0) {
+    r = 255.0
+    g = 99.4708025861 * ln(temp) - 161.1195681661
+    b = if (temp <= 19.0) {
+      0.0
+    } else {
+      138.5177312231 * ln(temp - 10.0) - 305.0447927307
+    }
+  } else {
+    r = 329.698727446 * (temp - 60.0).pow(-0.1332047592)
+    g = 288.1221695283 * (temp - 60.0).pow(-0.0755148492)
+    b = 255.0
+  }
+  val rr = r.coerceIn(0.0, 255.0) / 255.0
+  val gg = g.coerceIn(0.0, 255.0) / 255.0
+  val bb = b.coerceIn(0.0, 255.0) / 255.0
+  return Triple(rr, gg, bb)
+}
+
+private fun buildWhiteBalanceGains(temperature: Double): RggbChannelVector {
+  val (r, g, b) = kelvinToRgb(temperature)
+  val safeR = max(r, 1e-6)
+  val safeG = max(g, 1e-6)
+  val safeB = max(b, 1e-6)
+  val rGain = (safeG / safeR).coerceIn(0.1, MAX_WB_GAIN)
+  val bGain = (safeG / safeB).coerceIn(0.1, MAX_WB_GAIN)
+  return RggbChannelVector(rGain.toFloat(), 1f, 1f, bGain.toFloat())
 }
 
 @OptIn(ExperimentalGetImage::class)
@@ -330,12 +384,49 @@ internal fun CameraSession.configureSideProps(config: CameraConfiguration) {
     camera.cameraControl.enableTorch(newTorch)
   }
 
-  // Exposure
-  val currentExposureCompensation = camera.cameraInfo.exposureState.exposureCompensationIndex
-  val exposureCompensation = config.exposure?.roundToInt() ?: 0
-  if (currentExposureCompensation != exposureCompensation) {
-    camera.cameraControl.setExposureCompensationIndex(exposureCompensation)
+  // Exposure (only when auto exposure is enabled)
+  if (config.autoExposure) {
+    val currentExposureCompensation = camera.cameraInfo.exposureState.exposureCompensationIndex
+    val exposureCompensation = config.exposure?.roundToInt() ?: 0
+    if (currentExposureCompensation != exposureCompensation) {
+      camera.cameraControl.setExposureCompensationIndex(exposureCompensation)
+    }
   }
+
+  // Auto Exposure (AE) lock
+  val camera2Control = Camera2CameraControl.from(camera.cameraControl)
+  val requestBuilder = CaptureRequestOptions.Builder()
+  if (config.autoExposure) {
+    requestBuilder
+      .setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+      .setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK, false)
+  } else {
+    requestBuilder
+      .setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+      .setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK, true)
+  }
+
+  // White Balance (AWB auto vs fixed temperature)
+  if (config.autoWhiteBalance) {
+    requestBuilder
+      .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
+      .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, false)
+  } else {
+    val temperature = config.whiteBalanceTemperature
+    if (temperature != null) {
+      requestBuilder
+        .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF)
+        .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, true)
+        .setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+        .setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_TRANSFORM, IDENTITY_COLOR_TRANSFORM)
+        .setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_GAINS, buildWhiteBalanceGains(temperature))
+    } else {
+      requestBuilder
+        .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
+        .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, true)
+    }
+  }
+  camera2Control.setCaptureRequestOptions(requestBuilder.build())
 }
 
 internal fun CameraSession.configureIsActive(config: CameraConfiguration) {
