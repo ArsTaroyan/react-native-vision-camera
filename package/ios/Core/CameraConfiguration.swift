@@ -40,6 +40,9 @@ final class CameraConfiguration {
   var maxFps: Int32?
   var enableLowLightBoost = false
   var torch: Torch = .off
+  var autoWhiteBalance = true
+  var autoExposure = true
+  var whiteBalanceTemperature: Float?
 
   // Zoom
   var zoom: CGFloat?
@@ -69,6 +72,9 @@ final class CameraConfiguration {
       maxFps = other.maxFps
       enableLowLightBoost = other.enableLowLightBoost
       torch = other.torch
+      autoWhiteBalance = other.autoWhiteBalance
+      autoExposure = other.autoExposure
+      whiteBalanceTemperature = other.whiteBalanceTemperature
       zoom = other.zoom
       exposure = other.exposure
       isActive = other.isActive
@@ -131,7 +137,7 @@ final class CameraConfiguration {
       // format (depends on cameraId)
       formatChanged = inputChanged || left?.format != right.format
       // side-props (depends on format)
-      sidePropsChanged = formatChanged || left?.minFps != right.minFps || left?.maxFps != right.maxFps || left?.enableLowLightBoost != right.enableLowLightBoost
+      sidePropsChanged = formatChanged || left?.minFps != right.minFps || left?.maxFps != right.maxFps || left?.enableLowLightBoost != right.enableLowLightBoost || left?.autoWhiteBalance != right.autoWhiteBalance || left?.autoExposure != right.autoExposure || left?.whiteBalanceTemperature != right.whiteBalanceTemperature
       // torch (depends on isActive)
       let wasInactiveAndNeedsToEnableTorchAgain = left?.isActive == false && right.isActive == true && right.torch == .on
       torchChanged = inputChanged || wasInactiveAndNeedsToEnableTorchAgain || left?.torch != right.torch

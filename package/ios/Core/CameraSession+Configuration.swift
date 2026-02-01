@@ -281,11 +281,46 @@ extension CameraSession {
       }
       device.focusMode = .continuousAutoFocus
     }
-    if device.isExposureModeSupported(.continuousAutoExposure) {
-      if device.isExposurePointOfInterestSupported {
-        device.exposurePointOfInterest = CGPoint(x: 0.5, y: 0.5)
+    if configuration.autoExposure {
+      if device.isExposureModeSupported(.continuousAutoExposure) {
+        if device.isExposurePointOfInterestSupported {
+          device.exposurePointOfInterest = CGPoint(x: 0.5, y: 0.5)
+        }
+        device.exposureMode = .continuousAutoExposure
       }
-      device.exposureMode = .continuousAutoExposure
+    } else if device.isExposureModeSupported(.locked), device.exposureMode != .locked {
+      device.exposureMode = .locked
+    }
+
+    // Configure White Balance (Auto / Locked / Fixed Temperature)
+    if configuration.autoWhiteBalance {
+      let desiredWhiteBalanceMode: AVCaptureDevice.WhiteBalanceMode = .continuousAutoWhiteBalance
+      if device.isWhiteBalanceModeSupported(desiredWhiteBalanceMode),
+         device.whiteBalanceMode != desiredWhiteBalanceMode {
+        device.whiteBalanceMode = desiredWhiteBalanceMode
+      }
+    } else if let temperature = configuration.whiteBalanceTemperature {
+      guard device.isWhiteBalanceModeSupported(.locked) else {
+        return
+      }
+      let tempTint = AVCaptureDevice.WhiteBalanceTemperatureAndTintValues(temperature: temperature, tint: 0)
+      var gains = device.deviceWhiteBalanceGains(for: tempTint)
+      let maxGain = device.maxWhiteBalanceGain
+      gains = AVCaptureDevice.WhiteBalanceGains(
+        redGain: min(max(gains.redGain, 1.0), maxGain),
+        greenGain: min(max(gains.greenGain, 1.0), maxGain),
+        blueGain: min(max(gains.blueGain, 1.0), maxGain)
+      )
+      if device.whiteBalanceMode != .locked {
+        device.whiteBalanceMode = .locked
+      }
+      device.setWhiteBalanceModeLocked(with: gains, completionHandler: nil)
+    } else {
+      let desiredWhiteBalanceMode: AVCaptureDevice.WhiteBalanceMode = .locked
+      if device.isWhiteBalanceModeSupported(desiredWhiteBalanceMode),
+         device.whiteBalanceMode != desiredWhiteBalanceMode {
+        device.whiteBalanceMode = desiredWhiteBalanceMode
+      }
     }
   }
 
@@ -328,6 +363,9 @@ extension CameraSession {
    Configures exposure (`exposure`) as a bias that adjusts exposureTime and ISO.
    */
   func configureExposure(configuration: CameraConfiguration, device: AVCaptureDevice) {
+    guard configuration.autoExposure else {
+      return
+    }
     guard let exposure = configuration.exposure else {
       return
     }

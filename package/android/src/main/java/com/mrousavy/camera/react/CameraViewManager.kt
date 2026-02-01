@@ -239,6 +239,21 @@ class CameraViewManager : ViewGroupManager<CameraView>() {
     view.exposure = exposure
   }
 
+  @ReactProp(name = "autoExposure", defaultBoolean = true)
+  fun setAutoExposure(view: CameraView, autoExposure: Boolean) {
+    view.autoExposure = autoExposure
+  }
+
+  @ReactProp(name = "autoWhiteBalance", defaultBoolean = true)
+  fun setAutoWhiteBalance(view: CameraView, autoWhiteBalance: Boolean) {
+    view.autoWhiteBalance = autoWhiteBalance
+  }
+
+  @ReactProp(name = "whiteBalanceTemperature", defaultDouble = -1.0)
+  fun setWhiteBalanceTemperature(view: CameraView, whiteBalanceTemperature: Double) {
+    view.whiteBalanceTemperature = if (whiteBalanceTemperature > 0) whiteBalanceTemperature else null
+  }
+
   @ReactProp(name = "outputOrientation")
   fun setOrientation(view: CameraView, outputOrientation: String?) {
     if (outputOrientation != null) {

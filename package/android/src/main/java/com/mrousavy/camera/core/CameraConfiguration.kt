@@ -35,6 +35,9 @@ data class CameraConfiguration(
   var torch: Torch = Torch.OFF,
   var videoStabilizationMode: VideoStabilizationMode = VideoStabilizationMode.OFF,
   var exposure: Double? = null,
+  var autoExposure: Boolean = true,
+  var autoWhiteBalance: Boolean = true,
+  var whiteBalanceTemperature: Double? = null,
 
   // Zoom
   var zoom: Float = 1f,
@@ -140,7 +143,10 @@ data class CameraConfiguration(
       val sidePropsChanged = deviceChanged ||
         left?.torch != right.torch ||
         left.zoom != right.zoom ||
-        left.exposure != right.exposure
+        left.exposure != right.exposure ||
+        left.autoExposure != right.autoExposure ||
+        left.autoWhiteBalance != right.autoWhiteBalance ||
+        left.whiteBalanceTemperature != right.whiteBalanceTemperature
 
       val isActiveChanged = left?.isActive != right.isActive
 

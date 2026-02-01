@@ -87,6 +87,9 @@ class CameraView(context: Context) :
   var torch: Torch = Torch.OFF
   var zoom: Float = 1f // in "factor"
   var exposure: Double = 0.0
+  var autoExposure = true
+  var autoWhiteBalance = true
+  var whiteBalanceTemperature: Double? = null
   var outputOrientation: OutputOrientation = OutputOrientation.DEVICE
   var androidPreviewViewType: PreviewViewType = PreviewViewType.SURFACE_VIEW
     set(value) {
@@ -228,7 +231,10 @@ class CameraView(context: Context) :
         config.maxFps = maxFps
         config.enableLowLightBoost = lowLightBoost
         config.torch = torch
-        config.exposure = exposure
+        config.exposure = if (autoExposure) exposure else null
+        config.autoExposure = autoExposure
+        config.autoWhiteBalance = autoWhiteBalance
+        config.whiteBalanceTemperature = whiteBalanceTemperature
 
         // Zoom
         config.zoom = zoom

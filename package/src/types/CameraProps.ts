@@ -149,6 +149,23 @@ export interface CameraProps extends ViewProps {
    * The value between min- and max supported exposure is considered the default, neutral value.
    */
   exposure?: number
+  /**
+   * Enables or disables automatic exposure (AE).
+   * When set to `false`, the current exposure is locked.
+   * @default true
+   */
+  autoExposure?: boolean
+  /**
+   * Enables or disables automatic white balance (AWB).
+   * When set to `false`, the current white balance is locked.
+   * @default true
+   */
+  autoWhiteBalance?: boolean
+  /**
+   * Locks the white balance to a fixed temperature (in Kelvin) when `autoWhiteBalance` is `false`.
+   * If not set, the current AWB value will be locked instead.
+   */
+  whiteBalanceTemperature?: number
   //#endregion
 
   //#region Format/Preset selection
