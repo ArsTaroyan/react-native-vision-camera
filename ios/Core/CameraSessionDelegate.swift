@@ -42,6 +42,10 @@ protocol CameraSessionDelegate: AnyObject {
    */
   func onPreviewOrientationChanged(_ previewOrientation: Orientation)
   /**
+   Called after auto white balance calibration has been locked.
+   */
+  func onAutoWhiteBalanceCalibrated(temperature: Float?, tint: Float?)
+  /**
    Called for every frame (if video or frameProcessor is enabled)
    */
   func onFrame(sampleBuffer: CMSampleBuffer, orientation: Orientation, isMirrored: Bool)

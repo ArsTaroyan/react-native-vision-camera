@@ -102,3 +102,12 @@ class CameraCodeScannedEvent(surfaceId: Int, viewId: Int, private val data: Writ
     const val EVENT_NAME = "topCameraCodeScanned"
   }
 }
+
+class CameraAutoWhiteBalanceCalibratedEvent(surfaceId: Int, viewId: Int, private val data: WritableMap) :
+  Event<CameraAutoWhiteBalanceCalibratedEvent>(surfaceId, viewId) {
+  override fun getEventName() = EVENT_NAME
+  override fun getEventData() = data
+  companion object {
+    const val EVENT_NAME = "topCameraAutoWhiteBalanceCalibrated"
+  }
+}

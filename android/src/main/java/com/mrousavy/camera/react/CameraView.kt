@@ -89,8 +89,10 @@ class CameraView(context: Context) :
   var exposure: Double = 0.0
   var autoExposure = true
   var autoWhiteBalance = true
-  var autoWhiteBalanceLock = true
+  var autoWhiteBalanceLock = false
   var autoWhiteBalanceLockDelay: Long = 700
+  var autoWhiteBalanceCalibrateOnWhite = false
+  var autoWhiteBalanceCalibrateDelay: Long = 300
   var whiteBalanceTemperature: Double? = null
   var outputOrientation: OutputOrientation = OutputOrientation.DEVICE
   var androidPreviewViewType: PreviewViewType = PreviewViewType.SURFACE_VIEW
@@ -238,6 +240,8 @@ class CameraView(context: Context) :
         config.autoWhiteBalance = autoWhiteBalance
         config.autoWhiteBalanceLock = autoWhiteBalanceLock
         config.autoWhiteBalanceLockDelay = autoWhiteBalanceLockDelay
+        config.autoWhiteBalanceCalibrateOnWhite = autoWhiteBalanceCalibrateOnWhite
+        config.autoWhiteBalanceCalibrateDelay = autoWhiteBalanceCalibrateDelay
         config.whiteBalanceTemperature = whiteBalanceTemperature
 
         // Zoom
@@ -359,5 +363,9 @@ class CameraView(context: Context) :
 
   override fun onAverageFpsChanged(averageFps: Double) {
     invokeOnAverageFpsChanged(averageFps)
+  }
+
+  override fun onAutoWhiteBalanceCalibrated() {
+    invokeOnAutoWhiteBalanceCalibrated()
   }
 }

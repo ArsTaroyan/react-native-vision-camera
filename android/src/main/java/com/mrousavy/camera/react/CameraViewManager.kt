@@ -42,6 +42,7 @@ class CameraViewManager : ViewGroupManager<CameraView>() {
       .put(CameraOutputOrientationChangedEvent.EVENT_NAME, MapBuilder.of("registrationName", "onOutputOrientationChanged"))
       .put(CameraPreviewOrientationChangedEvent.EVENT_NAME, MapBuilder.of("registrationName", "onPreviewOrientationChanged"))
       .put(AverageFpsChangedEvent.EVENT_NAME, MapBuilder.of("registrationName", "onAverageFpsChanged"))
+      .put(CameraAutoWhiteBalanceCalibratedEvent.EVENT_NAME, MapBuilder.of("registrationName", "onAutoWhiteBalanceCalibrated"))
       .build()
 
   override fun getName(): String = TAG
@@ -250,7 +251,7 @@ class CameraViewManager : ViewGroupManager<CameraView>() {
     view.autoWhiteBalance = autoWhiteBalance
   }
 
-  @ReactProp(name = "autoWhiteBalanceLock", defaultBoolean = true)
+  @ReactProp(name = "autoWhiteBalanceLock", defaultBoolean = false)
   fun setAutoWhiteBalanceLock(view: CameraView, autoWhiteBalanceLock: Boolean) {
     view.autoWhiteBalanceLock = autoWhiteBalanceLock
   }
@@ -258,6 +259,16 @@ class CameraViewManager : ViewGroupManager<CameraView>() {
   @ReactProp(name = "autoWhiteBalanceLockDelay", defaultDouble = 700.0)
   fun setAutoWhiteBalanceLockDelay(view: CameraView, autoWhiteBalanceLockDelay: Double) {
     view.autoWhiteBalanceLockDelay = autoWhiteBalanceLockDelay.roundToLong()
+  }
+
+  @ReactProp(name = "autoWhiteBalanceCalibrateOnWhite", defaultBoolean = false)
+  fun setAutoWhiteBalanceCalibrateOnWhite(view: CameraView, autoWhiteBalanceCalibrateOnWhite: Boolean) {
+    view.autoWhiteBalanceCalibrateOnWhite = autoWhiteBalanceCalibrateOnWhite
+  }
+
+  @ReactProp(name = "autoWhiteBalanceCalibrateDelay", defaultDouble = 300.0)
+  fun setAutoWhiteBalanceCalibrateDelay(view: CameraView, autoWhiteBalanceCalibrateDelay: Double) {
+    view.autoWhiteBalanceCalibrateDelay = autoWhiteBalanceCalibrateDelay.roundToLong()
   }
 
   @ReactProp(name = "whiteBalanceTemperature", defaultDouble = -1.0)

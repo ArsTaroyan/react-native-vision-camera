@@ -125,6 +125,15 @@ fun CameraView.invokeOnAverageFpsChanged(averageFps: Double) {
   this.sendEvent(event)
 }
 
+fun CameraView.invokeOnAutoWhiteBalanceCalibrated() {
+  Log.i(CameraView.TAG, "invokeOnAutoWhiteBalanceCalibrated()")
+
+  val surfaceId = UIManagerHelper.getSurfaceId(this)
+  val data = Arguments.createMap()
+  val event = CameraAutoWhiteBalanceCalibratedEvent(surfaceId, id, data)
+  this.sendEvent(event)
+}
+
 fun CameraView.invokeOnCodeScanned(barcodes: List<Barcode>, scannerFrame: CodeScannerFrame) {
   val codes = Arguments.createArray()
   barcodes.forEach { barcode ->

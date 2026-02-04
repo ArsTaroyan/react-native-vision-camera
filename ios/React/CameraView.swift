@@ -62,8 +62,10 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
   @objc var zoom: NSNumber = 1.0 // in "factor"
   @objc var exposure: NSNumber = 0.0
   @objc var autoWhiteBalance = true
-  @objc var autoWhiteBalanceLock = true
+  @objc var autoWhiteBalanceLock = false
   @objc var autoWhiteBalanceLockDelay: NSNumber = 700
+  @objc var autoWhiteBalanceCalibrateOnWhite = false
+  @objc var autoWhiteBalanceCalibrateDelay: NSNumber = 300
   @objc var autoExposure = true
   @objc var whiteBalanceTemperature: NSNumber?
   @objc var videoStabilizationMode: NSString?
@@ -80,6 +82,7 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
   @objc var onStoppedEvent: RCTDirectEventBlock?
   @objc var onPreviewStartedEvent: RCTDirectEventBlock?
   @objc var onPreviewStoppedEvent: RCTDirectEventBlock?
+  @objc var onAutoWhiteBalanceCalibratedEvent: RCTDirectEventBlock?
   @objc var onShutterEvent: RCTDirectEventBlock?
   @objc var onPreviewOrientationChangedEvent: RCTDirectEventBlock?
   @objc var onOutputOrientationChangedEvent: RCTDirectEventBlock?
@@ -271,6 +274,8 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
       config.autoWhiteBalance = autoWhiteBalance
       config.autoWhiteBalanceLock = autoWhiteBalanceLock
       config.autoWhiteBalanceLockDelay = autoWhiteBalanceLockDelay.doubleValue
+      config.autoWhiteBalanceCalibrateOnWhite = autoWhiteBalanceCalibrateOnWhite
+      config.autoWhiteBalanceCalibrateDelay = autoWhiteBalanceCalibrateDelay.doubleValue
       config.autoExposure = autoExposure
       config.whiteBalanceTemperature = whiteBalanceTemperature?.floatValue
       config.exposure = autoExposure ? exposure.floatValue : nil
@@ -352,6 +357,13 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
 
   func onPreviewStopped() {
     onPreviewStoppedEvent?([:])
+  }
+
+  func onAutoWhiteBalanceCalibrated(temperature: Float?, tint: Float?) {
+    onAutoWhiteBalanceCalibratedEvent?([
+      "temperature": temperature ?? NSNull(),
+      "tint": tint ?? NSNull(),
+    ])
   }
 
   func onCaptureShutter(shutterType: ShutterType) {

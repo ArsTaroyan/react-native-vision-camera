@@ -70,6 +70,7 @@ class CameraSession(internal val context: Context, internal val callback: Callba
   internal var isRecordingCanceled = false
   internal val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
   internal var autoWhiteBalanceLocked = false
+  internal var lastAutoWhiteBalanceCalibrateOnWhite = false
   private val autoWhiteBalanceHandler = Handler(Looper.getMainLooper())
   private var autoWhiteBalanceLockRunnable: Runnable? = null
 
@@ -206,9 +207,11 @@ class CameraSession(internal val context: Context, internal val callback: Callba
       autoWhiteBalanceLockRunnable = null
       if (isDestroyed) return@Runnable
       val config = configuration ?: return@Runnable
-      if (!config.autoWhiteBalance || !config.autoWhiteBalanceLock || !config.isActive) return@Runnable
+      if (!config.autoWhiteBalance || !config.isActive) return@Runnable
+      if (!config.autoWhiteBalanceLock && !config.autoWhiteBalanceCalibrateOnWhite) return@Runnable
       autoWhiteBalanceLocked = true
       applyAutoWhiteBalanceLock(true)
+      callback.onAutoWhiteBalanceCalibrated()
     }
     autoWhiteBalanceLockRunnable = runnable
     autoWhiteBalanceHandler.postDelayed(runnable, delayMs)
@@ -259,5 +262,6 @@ class CameraSession(internal val context: Context, internal val callback: Callba
     fun onOutputOrientationChanged(outputOrientation: Orientation)
     fun onPreviewOrientationChanged(previewOrientation: Orientation)
     fun onCodeScanned(codes: List<Barcode>, scannerFrame: CodeScannerFrame)
+    fun onAutoWhiteBalanceCalibrated()
   }
 }

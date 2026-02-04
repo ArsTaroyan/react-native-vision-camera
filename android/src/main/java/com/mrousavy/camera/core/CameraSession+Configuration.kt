@@ -409,19 +409,24 @@ internal fun CameraSession.configureSideProps(config: CameraConfiguration) {
 
   // White Balance (AWB auto vs fixed temperature)
   if (config.autoWhiteBalance) {
-    val shouldLock = config.autoWhiteBalanceLock && autoWhiteBalanceLocked
+    val calibrationRequested = config.autoWhiteBalanceCalibrateOnWhite
+    val calibrationEdge = calibrationRequested && !lastAutoWhiteBalanceCalibrateOnWhite
+    if (calibrationEdge) {
+      autoWhiteBalanceLocked = false
+      scheduleAutoWhiteBalanceLock(config.autoWhiteBalanceCalibrateDelay)
+    } else if (config.autoWhiteBalanceLock && !autoWhiteBalanceLocked && config.isActive) {
+      scheduleAutoWhiteBalanceLock(config.autoWhiteBalanceLockDelay)
+    }
+
+    val shouldLock = autoWhiteBalanceLocked
     requestBuilder
       .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
       .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, shouldLock)
-    if (config.autoWhiteBalanceLock) {
-      if (!shouldLock && config.isActive) {
-        scheduleAutoWhiteBalanceLock(config.autoWhiteBalanceLockDelay)
-      }
-    } else {
-      resetAutoWhiteBalanceLock()
-    }
+
+    lastAutoWhiteBalanceCalibrateOnWhite = calibrationRequested
   } else {
     resetAutoWhiteBalanceLock()
+    lastAutoWhiteBalanceCalibrateOnWhite = false
     val temperature = config.whiteBalanceTemperature
     if (temperature != null) {
       requestBuilder
@@ -443,8 +448,12 @@ internal fun CameraSession.configureIsActive(config: CameraConfiguration) {
   if (config.isActive) {
     lifecycleRegistry.currentState = Lifecycle.State.STARTED
     lifecycleRegistry.currentState = Lifecycle.State.RESUMED
-    if (config.autoWhiteBalance && config.autoWhiteBalanceLock) {
-      scheduleAutoWhiteBalanceLock(config.autoWhiteBalanceLockDelay)
+    if (config.autoWhiteBalance && !autoWhiteBalanceLocked) {
+      if (config.autoWhiteBalanceCalibrateOnWhite) {
+        scheduleAutoWhiteBalanceLock(config.autoWhiteBalanceCalibrateDelay)
+      } else if (config.autoWhiteBalanceLock) {
+        scheduleAutoWhiteBalanceLock(config.autoWhiteBalanceLockDelay)
+      }
     }
   } else {
     resetAutoWhiteBalanceLock()

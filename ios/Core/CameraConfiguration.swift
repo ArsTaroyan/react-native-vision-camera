@@ -41,8 +41,10 @@ final class CameraConfiguration {
   var enableLowLightBoost = false
   var torch: Torch = .off
   var autoWhiteBalance = true
-  var autoWhiteBalanceLock = true
+  var autoWhiteBalanceLock = false
   var autoWhiteBalanceLockDelay: Double = 700
+  var autoWhiteBalanceCalibrateOnWhite = false
+  var autoWhiteBalanceCalibrateDelay: Double = 300
   var autoExposure = true
   var whiteBalanceTemperature: Float?
 
@@ -77,6 +79,8 @@ final class CameraConfiguration {
       autoWhiteBalance = other.autoWhiteBalance
       autoWhiteBalanceLock = other.autoWhiteBalanceLock
       autoWhiteBalanceLockDelay = other.autoWhiteBalanceLockDelay
+      autoWhiteBalanceCalibrateOnWhite = other.autoWhiteBalanceCalibrateOnWhite
+      autoWhiteBalanceCalibrateDelay = other.autoWhiteBalanceCalibrateDelay
       autoExposure = other.autoExposure
       whiteBalanceTemperature = other.whiteBalanceTemperature
       zoom = other.zoom
@@ -141,7 +145,7 @@ final class CameraConfiguration {
       // format (depends on cameraId)
       formatChanged = inputChanged || left?.format != right.format
       // side-props (depends on format)
-      sidePropsChanged = formatChanged || left?.minFps != right.minFps || left?.maxFps != right.maxFps || left?.enableLowLightBoost != right.enableLowLightBoost || left?.autoWhiteBalance != right.autoWhiteBalance || left?.autoWhiteBalanceLock != right.autoWhiteBalanceLock || left?.autoWhiteBalanceLockDelay != right.autoWhiteBalanceLockDelay || left?.autoExposure != right.autoExposure || left?.whiteBalanceTemperature != right.whiteBalanceTemperature
+      sidePropsChanged = formatChanged || left?.minFps != right.minFps || left?.maxFps != right.maxFps || left?.enableLowLightBoost != right.enableLowLightBoost || left?.autoWhiteBalance != right.autoWhiteBalance || left?.autoWhiteBalanceLock != right.autoWhiteBalanceLock || left?.autoWhiteBalanceLockDelay != right.autoWhiteBalanceLockDelay || left?.autoWhiteBalanceCalibrateOnWhite != right.autoWhiteBalanceCalibrateOnWhite || left?.autoWhiteBalanceCalibrateDelay != right.autoWhiteBalanceCalibrateDelay || left?.autoExposure != right.autoExposure || left?.whiteBalanceTemperature != right.whiteBalanceTemperature
       // torch (depends on isActive)
       let wasInactiveAndNeedsToEnableTorchAgain = left?.isActive == false && right.isActive == true && right.torch == .on
       torchChanged = inputChanged || wasInactiveAndNeedsToEnableTorchAgain || left?.torch != right.torch
