@@ -37,6 +37,8 @@ data class CameraConfiguration(
   var exposure: Double? = null,
   var autoExposure: Boolean = true,
   var autoWhiteBalance: Boolean = true,
+  var autoWhiteBalanceLock: Boolean = true,
+  var autoWhiteBalanceLockDelay: Long = 700,
   var whiteBalanceTemperature: Double? = null,
 
   // Zoom
@@ -146,6 +148,8 @@ data class CameraConfiguration(
         left.exposure != right.exposure ||
         left.autoExposure != right.autoExposure ||
         left.autoWhiteBalance != right.autoWhiteBalance ||
+        left.autoWhiteBalanceLock != right.autoWhiteBalanceLock ||
+        left.autoWhiteBalanceLockDelay != right.autoWhiteBalanceLockDelay ||
         left.whiteBalanceTemperature != right.whiteBalanceTemperature
 
       val isActiveChanged = left?.isActive != right.isActive

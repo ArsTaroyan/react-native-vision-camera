@@ -44,6 +44,7 @@ extension CameraSession {
     }
     captureSession.addInput(input)
     videoDeviceInput = input
+    resetAutoWhiteBalanceLock()
 
     // Update Orientation manager (uses device relative sensor orientation)
     orientationManager.setInputDevice(videoDevice)
@@ -294,12 +295,22 @@ extension CameraSession {
 
     // Configure White Balance (Auto / Locked / Fixed Temperature)
     if configuration.autoWhiteBalance {
-      let desiredWhiteBalanceMode: AVCaptureDevice.WhiteBalanceMode = .continuousAutoWhiteBalance
-      if device.isWhiteBalanceModeSupported(desiredWhiteBalanceMode),
-         device.whiteBalanceMode != desiredWhiteBalanceMode {
-        device.whiteBalanceMode = desiredWhiteBalanceMode
+      if configuration.autoWhiteBalanceLock,
+         autoWhiteBalanceLocked,
+         device.isWhiteBalanceModeSupported(.locked) {
+        if device.whiteBalanceMode != .locked {
+          device.whiteBalanceMode = .locked
+        }
+      } else {
+        let desiredWhiteBalanceMode: AVCaptureDevice.WhiteBalanceMode = .continuousAutoWhiteBalance
+        if device.isWhiteBalanceModeSupported(desiredWhiteBalanceMode),
+           device.whiteBalanceMode != desiredWhiteBalanceMode {
+          device.whiteBalanceMode = desiredWhiteBalanceMode
+        }
       }
+      scheduleAutoWhiteBalanceLockIfNeeded(configuration: configuration)
     } else if let temperature = configuration.whiteBalanceTemperature {
+      resetAutoWhiteBalanceLock()
       guard device.isWhiteBalanceModeSupported(.locked) else {
         return
       }
@@ -316,6 +327,7 @@ extension CameraSession {
       }
       device.setWhiteBalanceModeLocked(with: gains, completionHandler: nil)
     } else {
+      resetAutoWhiteBalanceLock()
       let desiredWhiteBalanceMode: AVCaptureDevice.WhiteBalanceMode = .locked
       if device.isWhiteBalanceModeSupported(desiredWhiteBalanceMode),
          device.whiteBalanceMode != desiredWhiteBalanceMode {
@@ -431,5 +443,67 @@ extension CameraSession {
       audioCaptureSession.addOutput(output)
       audioOutput = output
     }
+  }
+
+  // pragma MARK: Auto White Balance Lock
+
+  func resetAutoWhiteBalanceLock() {
+    autoWhiteBalanceLockWorkItem?.cancel()
+    autoWhiteBalanceLockWorkItem = nil
+    autoWhiteBalanceLocked = false
+  }
+
+  func scheduleAutoWhiteBalanceLockIfNeeded(configuration: CameraConfiguration) {
+    guard configuration.autoWhiteBalance, configuration.autoWhiteBalanceLock else {
+      resetAutoWhiteBalanceLock()
+      return
+    }
+    guard configuration.isActive else {
+      return
+    }
+    if autoWhiteBalanceLocked || autoWhiteBalanceLockWorkItem != nil {
+      return
+    }
+
+    let delayMs = max(0, Int(configuration.autoWhiteBalanceLockDelay))
+    let workItem = DispatchWorkItem { [weak self] in
+      guard let self else { return }
+      self.autoWhiteBalanceLockWorkItem = nil
+      guard let config = self.configuration,
+            config.autoWhiteBalance,
+            config.autoWhiteBalanceLock,
+            self.captureSession.isRunning,
+            let device = self.videoDeviceInput?.device else {
+        return
+      }
+      guard device.isWhiteBalanceModeSupported(.locked) else {
+        return
+      }
+      do {
+        try device.lockForConfiguration()
+        defer { device.unlockForConfiguration() }
+
+        var gains = device.deviceWhiteBalanceGains
+        let maxGain = device.maxWhiteBalanceGain
+        gains = AVCaptureDevice.WhiteBalanceGains(
+          redGain: min(max(gains.redGain, 1.0), maxGain),
+          greenGain: min(max(gains.greenGain, 1.0), maxGain),
+          blueGain: min(max(gains.blueGain, 1.0), maxGain)
+        )
+        if device.whiteBalanceMode != .locked {
+          device.whiteBalanceMode = .locked
+        }
+        device.setWhiteBalanceModeLocked(with: gains, completionHandler: nil)
+        self.autoWhiteBalanceLocked = true
+      } catch {
+        // ignore lock errors; AWB will remain auto
+      }
+    }
+
+    autoWhiteBalanceLockWorkItem = workItem
+    CameraQueues.cameraQueue.asyncAfter(
+      deadline: .now() + .milliseconds(delayMs),
+      execute: workItem
+    )
   }
 }

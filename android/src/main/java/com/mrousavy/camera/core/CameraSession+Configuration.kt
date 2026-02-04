@@ -334,6 +334,7 @@ internal suspend fun CameraSession.configureCamera(provider: ProcessCameraProvid
   // Bind it all together (must be on UI Thread)
   Log.i(CameraSession.TAG, "Binding ${useCases.size} use-cases...")
   camera = provider.bindToLifecycle(this, cameraSelector, *useCases.toTypedArray())
+  resetAutoWhiteBalanceLock()
   // Notify callback
   callback.onInitialized()
 
@@ -408,10 +409,19 @@ internal fun CameraSession.configureSideProps(config: CameraConfiguration) {
 
   // White Balance (AWB auto vs fixed temperature)
   if (config.autoWhiteBalance) {
+    val shouldLock = config.autoWhiteBalanceLock && autoWhiteBalanceLocked
     requestBuilder
       .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
-      .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, false)
+      .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, shouldLock)
+    if (config.autoWhiteBalanceLock) {
+      if (!shouldLock && config.isActive) {
+        scheduleAutoWhiteBalanceLock(config.autoWhiteBalanceLockDelay)
+      }
+    } else {
+      resetAutoWhiteBalanceLock()
+    }
   } else {
+    resetAutoWhiteBalanceLock()
     val temperature = config.whiteBalanceTemperature
     if (temperature != null) {
       requestBuilder
@@ -433,7 +443,11 @@ internal fun CameraSession.configureIsActive(config: CameraConfiguration) {
   if (config.isActive) {
     lifecycleRegistry.currentState = Lifecycle.State.STARTED
     lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+    if (config.autoWhiteBalance && config.autoWhiteBalanceLock) {
+      scheduleAutoWhiteBalanceLock(config.autoWhiteBalanceLockDelay)
+    }
   } else {
+    resetAutoWhiteBalanceLock()
     lifecycleRegistry.currentState = Lifecycle.State.STARTED
     lifecycleRegistry.currentState = Lifecycle.State.CREATED
   }

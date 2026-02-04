@@ -33,6 +33,8 @@ final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
   var recordingSession: RecordingSession?
   var didCancelRecording = false
   var orientationManager = OrientationManager()
+  var autoWhiteBalanceLocked = false
+  var autoWhiteBalanceLockWorkItem: DispatchWorkItem?
 
   // Callbacks
   weak var delegate: CameraSessionDelegate?
@@ -259,7 +261,9 @@ final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     if configuration.isActive {
       captureSession.startRunning()
       delegate?.onCameraStarted()
+      scheduleAutoWhiteBalanceLockIfNeeded(configuration: configuration)
     } else {
+      resetAutoWhiteBalanceLock()
       captureSession.stopRunning()
       delegate?.onCameraStopped()
     }

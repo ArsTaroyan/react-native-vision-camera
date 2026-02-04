@@ -14,6 +14,7 @@ import com.mrousavy.camera.core.types.QualityBalance
 import com.mrousavy.camera.core.types.ResizeMode
 import com.mrousavy.camera.core.types.Torch
 import com.mrousavy.camera.core.types.VideoStabilizationMode
+import kotlin.math.roundToLong
 
 @Suppress("unused")
 class CameraViewManager : ViewGroupManager<CameraView>() {
@@ -247,6 +248,16 @@ class CameraViewManager : ViewGroupManager<CameraView>() {
   @ReactProp(name = "autoWhiteBalance", defaultBoolean = true)
   fun setAutoWhiteBalance(view: CameraView, autoWhiteBalance: Boolean) {
     view.autoWhiteBalance = autoWhiteBalance
+  }
+
+  @ReactProp(name = "autoWhiteBalanceLock", defaultBoolean = true)
+  fun setAutoWhiteBalanceLock(view: CameraView, autoWhiteBalanceLock: Boolean) {
+    view.autoWhiteBalanceLock = autoWhiteBalanceLock
+  }
+
+  @ReactProp(name = "autoWhiteBalanceLockDelay", defaultDouble = 700.0)
+  fun setAutoWhiteBalanceLockDelay(view: CameraView, autoWhiteBalanceLockDelay: Double) {
+    view.autoWhiteBalanceLockDelay = autoWhiteBalanceLockDelay.roundToLong()
   }
 
   @ReactProp(name = "whiteBalanceTemperature", defaultDouble = -1.0)

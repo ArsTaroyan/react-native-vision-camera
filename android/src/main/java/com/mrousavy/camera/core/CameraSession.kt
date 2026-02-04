@@ -4,8 +4,13 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioManager
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import android.hardware.camera2.CaptureRequest
 import androidx.annotation.MainThread
+import androidx.camera.camera2.interop.Camera2CameraControl
+import androidx.camera.camera2.interop.CaptureRequestOptions
 import androidx.camera.core.Camera
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
@@ -64,6 +69,9 @@ class CameraSession(internal val context: Context, internal val callback: Callba
   internal var recording: Recording? = null
   internal var isRecordingCanceled = false
   internal val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+  internal var autoWhiteBalanceLocked = false
+  private val autoWhiteBalanceHandler = Handler(Looper.getMainLooper())
+  private var autoWhiteBalanceLockRunnable: Runnable? = null
 
   // Threading
   internal val mainExecutor = ContextCompat.getMainExecutor(context)
@@ -84,6 +92,7 @@ class CameraSession(internal val context: Context, internal val callback: Callba
   override fun close() {
     Log.i(TAG, "Closing CameraSession...")
     isDestroyed = true
+    resetAutoWhiteBalanceLock()
     orientationManager.stopOrientationUpdates()
     runOnUiThread {
       lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
@@ -183,6 +192,35 @@ class CameraSession(internal val context: Context, internal val callback: Callba
   internal fun checkMicrophonePermission() {
     val status = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
     if (status != PackageManager.PERMISSION_GRANTED) throw MicrophonePermissionError()
+  }
+
+  internal fun resetAutoWhiteBalanceLock() {
+    autoWhiteBalanceLocked = false
+    autoWhiteBalanceLockRunnable?.let { autoWhiteBalanceHandler.removeCallbacks(it) }
+    autoWhiteBalanceLockRunnable = null
+  }
+
+  internal fun scheduleAutoWhiteBalanceLock(delayMs: Long) {
+    if (autoWhiteBalanceLocked || autoWhiteBalanceLockRunnable != null) return
+    val runnable = Runnable {
+      autoWhiteBalanceLockRunnable = null
+      if (isDestroyed) return@Runnable
+      val config = configuration ?: return@Runnable
+      if (!config.autoWhiteBalance || !config.autoWhiteBalanceLock || !config.isActive) return@Runnable
+      autoWhiteBalanceLocked = true
+      applyAutoWhiteBalanceLock(true)
+    }
+    autoWhiteBalanceLockRunnable = runnable
+    autoWhiteBalanceHandler.postDelayed(runnable, delayMs)
+  }
+
+  internal fun applyAutoWhiteBalanceLock(lock: Boolean) {
+    val camera = camera ?: return
+    val camera2Control = Camera2CameraControl.from(camera.cameraControl)
+    val requestBuilder = CaptureRequestOptions.Builder()
+      .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
+      .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, lock)
+    camera2Control.setCaptureRequestOptions(requestBuilder.build())
   }
 
   override fun onOutputOrientationChanged(outputOrientation: Orientation) {

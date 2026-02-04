@@ -54,6 +54,8 @@ RCT_EXPORT_VIEW_PROPERTY(torch, NSString);
 RCT_EXPORT_VIEW_PROPERTY(zoom, NSNumber);
 RCT_EXPORT_VIEW_PROPERTY(exposure, NSNumber);
 RCT_EXPORT_VIEW_PROPERTY(autoWhiteBalance, BOOL);
+RCT_EXPORT_VIEW_PROPERTY(autoWhiteBalanceLock, BOOL);
+RCT_EXPORT_VIEW_PROPERTY(autoWhiteBalanceLockDelay, NSNumber);
 RCT_EXPORT_VIEW_PROPERTY(autoExposure, BOOL);
 RCT_EXPORT_VIEW_PROPERTY(whiteBalanceTemperature, NSNumber);
 RCT_EXPORT_VIEW_PROPERTY(enableZoomGesture, BOOL);

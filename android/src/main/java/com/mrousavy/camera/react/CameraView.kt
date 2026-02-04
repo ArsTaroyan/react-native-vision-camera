@@ -89,6 +89,8 @@ class CameraView(context: Context) :
   var exposure: Double = 0.0
   var autoExposure = true
   var autoWhiteBalance = true
+  var autoWhiteBalanceLock = true
+  var autoWhiteBalanceLockDelay: Long = 700
   var whiteBalanceTemperature: Double? = null
   var outputOrientation: OutputOrientation = OutputOrientation.DEVICE
   var androidPreviewViewType: PreviewViewType = PreviewViewType.SURFACE_VIEW
@@ -234,6 +236,8 @@ class CameraView(context: Context) :
         config.exposure = if (autoExposure) exposure else null
         config.autoExposure = autoExposure
         config.autoWhiteBalance = autoWhiteBalance
+        config.autoWhiteBalanceLock = autoWhiteBalanceLock
+        config.autoWhiteBalanceLockDelay = autoWhiteBalanceLockDelay
         config.whiteBalanceTemperature = whiteBalanceTemperature
 
         // Zoom
