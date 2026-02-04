@@ -295,8 +295,7 @@ extension CameraSession {
 
     // Configure White Balance (Auto / Locked / Fixed Temperature)
     if configuration.autoWhiteBalance {
-      if configuration.autoWhiteBalanceLock,
-         autoWhiteBalanceLocked,
+      if autoWhiteBalanceLocked,
          device.isWhiteBalanceModeSupported(.locked) {
         if device.whiteBalanceMode != .locked {
           device.whiteBalanceMode = .locked
@@ -311,6 +310,7 @@ extension CameraSession {
       scheduleAutoWhiteBalanceLockIfNeeded(configuration: configuration)
     } else if let temperature = configuration.whiteBalanceTemperature {
       resetAutoWhiteBalanceLock()
+      lastAutoWhiteBalanceCalibrateOnWhite = false
       guard device.isWhiteBalanceModeSupported(.locked) else {
         return
       }
@@ -328,6 +328,7 @@ extension CameraSession {
       device.setWhiteBalanceModeLocked(with: gains, completionHandler: nil)
     } else {
       resetAutoWhiteBalanceLock()
+      lastAutoWhiteBalanceCalibrateOnWhite = false
       let desiredWhiteBalanceMode: AVCaptureDevice.WhiteBalanceMode = .locked
       if device.isWhiteBalanceModeSupported(desiredWhiteBalanceMode),
          device.whiteBalanceMode != desiredWhiteBalanceMode {
@@ -454,24 +455,42 @@ extension CameraSession {
   }
 
   func scheduleAutoWhiteBalanceLockIfNeeded(configuration: CameraConfiguration) {
-    guard configuration.autoWhiteBalance, configuration.autoWhiteBalanceLock else {
+    guard configuration.autoWhiteBalance else {
       resetAutoWhiteBalanceLock()
+      lastAutoWhiteBalanceCalibrateOnWhite = false
       return
     }
     guard configuration.isActive else {
       return
     }
+
+    let calibrationRequested = configuration.autoWhiteBalanceCalibrateOnWhite
+    let calibrationEdge = calibrationRequested && !lastAutoWhiteBalanceCalibrateOnWhite
+    if calibrationEdge {
+      // Re-calibrate: unlock and reschedule a new lock after delay.
+      resetAutoWhiteBalanceLock()
+    }
+
+    let shouldSchedule = calibrationEdge || configuration.autoWhiteBalanceLock
+    if !shouldSchedule {
+      lastAutoWhiteBalanceCalibrateOnWhite = calibrationRequested
+      return
+    }
     if autoWhiteBalanceLocked || autoWhiteBalanceLockWorkItem != nil {
+      lastAutoWhiteBalanceCalibrateOnWhite = calibrationRequested
       return
     }
 
-    let delayMs = max(0, Int(configuration.autoWhiteBalanceLockDelay))
+    let delayMs = max(
+      0,
+      Int(calibrationEdge ? configuration.autoWhiteBalanceCalibrateDelay : configuration.autoWhiteBalanceLockDelay)
+    )
     let workItem = DispatchWorkItem { [weak self] in
       guard let self else { return }
       self.autoWhiteBalanceLockWorkItem = nil
       guard let config = self.configuration,
             config.autoWhiteBalance,
-            config.autoWhiteBalanceLock,
+            (config.autoWhiteBalanceLock || config.autoWhiteBalanceCalibrateOnWhite),
             self.captureSession.isRunning,
             let device = self.videoDeviceInput?.device else {
         return
@@ -495,6 +514,12 @@ extension CameraSession {
         }
         device.setWhiteBalanceModeLocked(with: gains, completionHandler: nil)
         self.autoWhiteBalanceLocked = true
+
+        let tempTint = device.temperatureAndTintValues(for: gains)
+        self.delegate?.onAutoWhiteBalanceCalibrated(
+          temperature: tempTint.temperature,
+          tint: tempTint.tint
+        )
       } catch {
         // ignore lock errors; AWB will remain auto
       }
@@ -505,5 +530,6 @@ extension CameraSession {
       deadline: .now() + .milliseconds(delayMs),
       execute: workItem
     )
+    lastAutoWhiteBalanceCalibrateOnWhite = calibrationRequested
   }
 }

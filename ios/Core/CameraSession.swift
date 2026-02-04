@@ -35,6 +35,7 @@ final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
   var orientationManager = OrientationManager()
   var autoWhiteBalanceLocked = false
   var autoWhiteBalanceLockWorkItem: DispatchWorkItem?
+  var lastAutoWhiteBalanceCalibrateOnWhite = false
 
   // Callbacks
   weak var delegate: CameraSessionDelegate?
