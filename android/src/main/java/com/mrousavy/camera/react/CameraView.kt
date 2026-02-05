@@ -235,8 +235,8 @@ class CameraView(context: Context) :
         config.maxFps = maxFps
         config.enableLowLightBoost = lowLightBoost
         config.torch = torch
-        config.exposure = if (autoExposure) exposure else null
-        config.autoExposure = autoExposure
+        config.exposure = null
+        config.autoExposure = false
         config.autoWhiteBalance = autoWhiteBalance
         config.autoWhiteBalanceLock = autoWhiteBalanceLock
         config.autoWhiteBalanceLockDelay = autoWhiteBalanceLockDelay
@@ -369,3 +369,5 @@ class CameraView(context: Context) :
     invokeOnAutoWhiteBalanceCalibrated()
   }
 }
+
+

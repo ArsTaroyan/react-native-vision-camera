@@ -276,9 +276,9 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
       config.autoWhiteBalanceLockDelay = autoWhiteBalanceLockDelay.doubleValue
       config.autoWhiteBalanceCalibrateOnWhite = autoWhiteBalanceCalibrateOnWhite
       config.autoWhiteBalanceCalibrateDelay = autoWhiteBalanceCalibrateDelay.doubleValue
-      config.autoExposure = autoExposure
+      config.autoExposure = false
       config.whiteBalanceTemperature = whiteBalanceTemperature?.floatValue
-      config.exposure = autoExposure ? exposure.floatValue : nil
+      config.exposure = nil
 
       // Zoom
       config.zoom = zoom.doubleValue
@@ -415,3 +415,5 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
     ])
   }
 }
+
+
