@@ -380,6 +380,13 @@ export interface CameraProps extends ViewProps {
      */
     onPreviewStopped?: () => void;
     /**
+     * Called after auto white balance calibration has been locked.
+     */
+    onAutoWhiteBalanceCalibrated?: (event: {
+        temperature?: number;
+        tint?: number;
+    }) => void;
+    /**
      * Called just before a photo or snapshot is captured.
      *
      * Inside this callback you can play a custom shutter sound or show visual feedback to the user.
