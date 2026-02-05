@@ -35,8 +35,8 @@ data class CameraConfiguration(
   var torch: Torch = Torch.OFF,
   var videoStabilizationMode: VideoStabilizationMode = VideoStabilizationMode.OFF,
   var exposure: Double? = null,
-  var autoExposure: Boolean = true,
-  var autoWhiteBalance: Boolean = true,
+  var autoExposure: Boolean = false,
+  var autoWhiteBalance: Boolean = false,
   var autoWhiteBalanceLock: Boolean = false,
   var autoWhiteBalanceLockDelay: Long = 700,
   var autoWhiteBalanceCalibrateOnWhite: Boolean = false,
@@ -173,3 +173,4 @@ data class CameraConfiguration(
     }
   }
 }
+

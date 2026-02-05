@@ -40,12 +40,12 @@ final class CameraConfiguration {
   var maxFps: Int32?
   var enableLowLightBoost = false
   var torch: Torch = .off
-  var autoWhiteBalance = true
+  var autoWhiteBalance = false
   var autoWhiteBalanceLock = false
   var autoWhiteBalanceLockDelay: Double = 700
   var autoWhiteBalanceCalibrateOnWhite = false
   var autoWhiteBalanceCalibrateDelay: Double = 300
-  var autoExposure = true
+  var autoExposure = false
   var whiteBalanceTemperature: Float?
 
   // Zoom
@@ -276,3 +276,4 @@ extension CameraConfiguration.Video {
     return format
   }
 }
+
