@@ -147,6 +147,32 @@ export interface CameraProps extends ViewProps {
      */
     autoWhiteBalance?: boolean;
     /**
+     * Locks auto white balance after a short delay to keep the overall tint stable.
+     * This prevents strong colors in the scene (e.g. red) from shifting the whole image.
+     * @default false
+     */
+    autoWhiteBalanceLock?: boolean;
+    /**
+     * Delay (in milliseconds) before auto white balance is locked when
+     * `autoWhiteBalance` is `true` and `autoWhiteBalanceLock` is enabled.
+     * @default 700
+     */
+    autoWhiteBalanceLockDelay?: number;
+    /**
+     * When `true`, the Camera will calibrate white balance once (while you point at white/gray),
+     * then lock it to keep the image neutral in colored lighting.
+     *
+     * @default false
+     */
+    autoWhiteBalanceCalibrateOnWhite?: boolean;
+    /**
+     * Delay (in milliseconds) before the calibration locks white balance.
+     * Increase if you need more time for AWB to settle.
+     *
+     * @default 300
+     */
+    autoWhiteBalanceCalibrateDelay?: number;
+    /**
      * Locks the white balance to a fixed temperature (in Kelvin) when `autoWhiteBalance` is `false`.
      * If not set, the current AWB value will be locked instead.
      */
