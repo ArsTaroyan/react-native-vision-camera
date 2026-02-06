@@ -112,6 +112,9 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
   var isMounted = false
   private var currentConfigureCall: DispatchTime?
   private let fpsSampleCollector = FpsSampleCollector()
+  private var forceAutoExposureOff = false
+  private var forceAutoWhiteBalanceOff = false
+  private var lastCalibrateOnWhite = false
 
   // CameraView+Zoom
   var pinchGestureRecognizer: UIPinchGestureRecognizer?
@@ -193,6 +196,20 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
     let now = DispatchTime.now()
     currentConfigureCall = now
 
+    if changedProps.contains("autoExposure"), autoExposure {
+      forceAutoExposureOff = false
+    }
+    if changedProps.contains("autoWhiteBalance"), autoWhiteBalance {
+      forceAutoWhiteBalanceOff = false
+    }
+    if changedProps.contains("autoWhiteBalanceCalibrateOnWhite") {
+      if lastCalibrateOnWhite, !autoWhiteBalanceCalibrateOnWhite {
+        forceAutoExposureOff = true
+        forceAutoWhiteBalanceOff = true
+      }
+      lastCalibrateOnWhite = autoWhiteBalanceCalibrateOnWhite
+    }
+
     cameraSession.configure { [self] config in
       // Check if we're still the latest call to configure { ... }
       guard currentConfigureCall == now else {
@@ -272,12 +289,12 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
       config.maxFps = maxFps?.int32Value
       config.enableLowLightBoost = lowLightBoost
       config.torch = try Torch(jsValue: torch)
-      config.autoWhiteBalance = autoWhiteBalance
+      config.autoWhiteBalance = forceAutoWhiteBalanceOff ? false : autoWhiteBalance
       config.autoWhiteBalanceLock = autoWhiteBalanceLock
       config.autoWhiteBalanceLockDelay = autoWhiteBalanceLockDelay.doubleValue
       config.autoWhiteBalanceCalibrateOnWhite = autoWhiteBalanceCalibrateOnWhite
       config.autoWhiteBalanceCalibrateDelay = autoWhiteBalanceCalibrateDelay.doubleValue
-      config.autoExposure = autoExposure
+      config.autoExposure = forceAutoExposureOff ? false : autoExposure
       config.whiteBalanceTemperature = enableWhiteBalanceTemperature ? whiteBalanceTemperature?.floatValue : nil
       config.exposure = nil
 

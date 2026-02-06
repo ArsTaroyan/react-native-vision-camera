@@ -87,11 +87,33 @@ class CameraView(context: Context) :
   var torch: Torch = Torch.OFF
   var zoom: Float = 1f // in "factor"
   var exposure: Double = 0.0
+  private var forceAutoExposureOff = false
+  private var forceAutoWhiteBalanceOff = false
   var autoExposure = true
+    set(value) {
+      field = value
+      if (value) {
+        forceAutoExposureOff = false
+      }
+    }
   var autoWhiteBalance = true
+    set(value) {
+      field = value
+      if (value) {
+        forceAutoWhiteBalanceOff = false
+      }
+    }
   var autoWhiteBalanceLock = false
   var autoWhiteBalanceLockDelay: Long = 700
   var autoWhiteBalanceCalibrateOnWhite = false
+    set(value) {
+      val was = field
+      field = value
+      if (was && !value) {
+        forceAutoExposureOff = true
+        forceAutoWhiteBalanceOff = true
+      }
+    }
   var autoWhiteBalanceCalibrateDelay: Long = 300
   var enableWhiteBalanceTemperature = true
   var whiteBalanceTemperature: Double? = null
@@ -237,8 +259,8 @@ class CameraView(context: Context) :
         config.enableLowLightBoost = lowLightBoost
         config.torch = torch
         config.exposure = null
-        config.autoExposure = autoExposure
-        config.autoWhiteBalance = autoWhiteBalance
+        config.autoExposure = if (forceAutoExposureOff) false else autoExposure
+        config.autoWhiteBalance = if (forceAutoWhiteBalanceOff) false else autoWhiteBalance
         config.autoWhiteBalanceLock = autoWhiteBalanceLock
         config.autoWhiteBalanceLockDelay = autoWhiteBalanceLockDelay
         config.autoWhiteBalanceCalibrateOnWhite = autoWhiteBalanceCalibrateOnWhite
