@@ -115,6 +115,8 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
   private var forceAutoExposureOff = false
   private var forceAutoWhiteBalanceOff = false
   private var lastCalibrateOnWhite = false
+  private var lastAutoExposureProp = true
+  private var lastAutoWhiteBalanceProp = true
 
   // CameraView+Zoom
   var pinchGestureRecognizer: UIPinchGestureRecognizer?
@@ -196,11 +198,17 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
     let now = DispatchTime.now()
     currentConfigureCall = now
 
-    if changedProps.contains("autoExposure"), autoExposure {
-      forceAutoExposureOff = false
+    if changedProps.contains("autoExposure") {
+      if !lastAutoExposureProp, autoExposure, !autoWhiteBalanceCalibrateOnWhite {
+        forceAutoExposureOff = false
+      }
+      lastAutoExposureProp = autoExposure
     }
-    if changedProps.contains("autoWhiteBalance"), autoWhiteBalance {
-      forceAutoWhiteBalanceOff = false
+    if changedProps.contains("autoWhiteBalance") {
+      if !lastAutoWhiteBalanceProp, autoWhiteBalance, !autoWhiteBalanceCalibrateOnWhite {
+        forceAutoWhiteBalanceOff = false
+      }
+      lastAutoWhiteBalanceProp = autoWhiteBalance
     }
     if changedProps.contains("autoWhiteBalanceCalibrateOnWhite") {
       if lastCalibrateOnWhite, !autoWhiteBalanceCalibrateOnWhite {

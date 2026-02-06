@@ -91,15 +91,17 @@ class CameraView(context: Context) :
   private var forceAutoWhiteBalanceOff = false
   var autoExposure = true
     set(value) {
+      val previous = field
       field = value
-      if (value) {
+      if (!autoWhiteBalanceCalibrateOnWhite && !previous && value) {
         forceAutoExposureOff = false
       }
     }
   var autoWhiteBalance = true
     set(value) {
+      val previous = field
       field = value
-      if (value) {
+      if (!autoWhiteBalanceCalibrateOnWhite && !previous && value) {
         forceAutoWhiteBalanceOff = false
       }
     }
