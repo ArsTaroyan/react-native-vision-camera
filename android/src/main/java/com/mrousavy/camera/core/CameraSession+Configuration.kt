@@ -393,6 +393,10 @@ internal fun CameraSession.configureSideProps(config: CameraConfiguration) {
 
   if (calibrationStarted) {
     resetAutoWhiteBalanceLock()
+    scheduleAutoWhiteBalanceCalibration(config.autoWhiteBalanceCalibrateDelay)
+  }
+  if (calibrationEnded) {
+    resetAutoWhiteBalanceCalibration()
   }
 
   // Exposure (only when auto exposure is enabled)
@@ -444,9 +448,6 @@ internal fun CameraSession.configureSideProps(config: CameraConfiguration) {
     }
   }
   camera2Control.setCaptureRequestOptions(requestBuilder.build())
-  if (calibrationEnded && !config.autoWhiteBalance) {
-    callback.onAutoWhiteBalanceCalibrated()
-  }
   lastAutoWhiteBalanceCalibrateOnWhite = isCalibratingWhiteBalance
 }
 
@@ -459,8 +460,12 @@ internal fun CameraSession.configureIsActive(config: CameraConfiguration) {
         scheduleAutoWhiteBalanceLock(config.autoWhiteBalanceLockDelay)
       }
     }
+    if (config.autoWhiteBalanceCalibrateOnWhite) {
+      scheduleAutoWhiteBalanceCalibration(config.autoWhiteBalanceCalibrateDelay)
+    }
   } else {
     resetAutoWhiteBalanceLock()
+    resetAutoWhiteBalanceCalibration()
     lifecycleRegistry.currentState = Lifecycle.State.STARTED
     lifecycleRegistry.currentState = Lifecycle.State.CREATED
   }

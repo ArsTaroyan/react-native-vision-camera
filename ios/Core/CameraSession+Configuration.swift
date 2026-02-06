@@ -284,6 +284,10 @@ extension CameraSession {
     if calibrationStarted {
       // Ensure AWB is unlocked while calibrating
       resetAutoWhiteBalanceLock()
+      scheduleAutoWhiteBalanceCalibrationIfNeeded(configuration: configuration)
+    }
+    if calibrationEnded {
+      resetAutoWhiteBalanceCalibration()
     }
 
     // Configure auto-focus
@@ -341,8 +345,8 @@ extension CameraSession {
         device.whiteBalanceMode = .locked
       }
       device.setWhiteBalanceModeLocked(with: gains, completionHandler: nil)
-    } else if calibrationEnded && !configuration.autoWhiteBalance {
-      lockWhiteBalanceToCurrent(device: device)
+    } else if calibrationEnded {
+      lockWhiteBalanceToCurrent(device: device, emitEvent: false)
     } else {
       resetAutoWhiteBalanceLock()
       let desiredWhiteBalanceMode: AVCaptureDevice.WhiteBalanceMode = .locked
@@ -352,7 +356,7 @@ extension CameraSession {
       }
     }
 
-    if calibrationEnded && !configuration.autoExposure {
+    if calibrationEnded {
       lockExposureToCurrent(device: device)
     }
 
@@ -427,7 +431,7 @@ extension CameraSession {
   /**
    Locks the current white balance gains and reports the resulting temperature/tint.
    */
-  func lockWhiteBalanceToCurrent(device: AVCaptureDevice) {
+  func lockWhiteBalanceToCurrent(device: AVCaptureDevice, emitEvent: Bool = true) {
     guard device.isWhiteBalanceModeSupported(.locked) else {
       return
     }
@@ -445,10 +449,12 @@ extension CameraSession {
     autoWhiteBalanceLocked = true
 
     let tempTint = device.temperatureAndTintValues(for: gains)
-    delegate?.onAutoWhiteBalanceCalibrated(
-      temperature: tempTint.temperature,
-      tint: tempTint.tint
-    )
+    if emitEvent {
+      delegate?.onAutoWhiteBalanceCalibrated(
+        temperature: tempTint.temperature,
+        tint: tempTint.tint
+      )
+    }
   }
 
   // pragma MARK: Audio
@@ -517,6 +523,48 @@ extension CameraSession {
     autoWhiteBalanceLockWorkItem = nil
     autoWhiteBalanceLocked = false
     lastAutoWhiteBalanceCalibrateOnWhite = false
+  }
+
+  func resetAutoWhiteBalanceCalibration() {
+    autoWhiteBalanceCalibrateWorkItem?.cancel()
+    autoWhiteBalanceCalibrateWorkItem = nil
+  }
+
+  func scheduleAutoWhiteBalanceCalibrationIfNeeded(configuration: CameraConfiguration) {
+    guard configuration.autoWhiteBalanceCalibrateOnWhite else {
+      return
+    }
+    if autoWhiteBalanceCalibrateWorkItem != nil {
+      return
+    }
+
+    let delayMs = max(0, Int(configuration.autoWhiteBalanceCalibrateDelay))
+    let workItem = DispatchWorkItem { [weak self] in
+      guard let self else { return }
+      self.autoWhiteBalanceCalibrateWorkItem = nil
+      guard let config = self.configuration,
+            config.autoWhiteBalanceCalibrateOnWhite,
+            config.isActive,
+            self.captureSession.isRunning else {
+        return
+      }
+      guard let device = self.videoDeviceInput?.device else {
+        self.delegate?.onAutoWhiteBalanceCalibrated(temperature: nil, tint: nil)
+        return
+      }
+      let gains = device.deviceWhiteBalanceGains
+      let tempTint = device.temperatureAndTintValues(for: gains)
+      self.delegate?.onAutoWhiteBalanceCalibrated(
+        temperature: tempTint.temperature,
+        tint: tempTint.tint
+      )
+    }
+
+    autoWhiteBalanceCalibrateWorkItem = workItem
+    CameraQueues.cameraQueue.asyncAfter(
+      deadline: .now() + .milliseconds(delayMs),
+      execute: workItem
+    )
   }
 
   func scheduleAutoWhiteBalanceLockIfNeeded(configuration: CameraConfiguration) {

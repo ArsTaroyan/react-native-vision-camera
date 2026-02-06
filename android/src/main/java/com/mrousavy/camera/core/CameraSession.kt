@@ -73,6 +73,7 @@ class CameraSession(internal val context: Context, internal val callback: Callba
   internal var lastAutoWhiteBalanceCalibrateOnWhite = false
   private val autoWhiteBalanceHandler = Handler(Looper.getMainLooper())
   private var autoWhiteBalanceLockRunnable: Runnable? = null
+  private var autoWhiteBalanceCalibrateRunnable: Runnable? = null
 
   // Threading
   internal val mainExecutor = ContextCompat.getMainExecutor(context)
@@ -94,6 +95,7 @@ class CameraSession(internal val context: Context, internal val callback: Callba
     Log.i(TAG, "Closing CameraSession...")
     isDestroyed = true
     resetAutoWhiteBalanceLock()
+    resetAutoWhiteBalanceCalibration()
     orientationManager.stopOrientationUpdates()
     runOnUiThread {
       lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
@@ -200,6 +202,24 @@ class CameraSession(internal val context: Context, internal val callback: Callba
     autoWhiteBalanceLockRunnable?.let { autoWhiteBalanceHandler.removeCallbacks(it) }
     autoWhiteBalanceLockRunnable = null
     lastAutoWhiteBalanceCalibrateOnWhite = false
+  }
+
+  internal fun resetAutoWhiteBalanceCalibration() {
+    autoWhiteBalanceCalibrateRunnable?.let { autoWhiteBalanceHandler.removeCallbacks(it) }
+    autoWhiteBalanceCalibrateRunnable = null
+  }
+
+  internal fun scheduleAutoWhiteBalanceCalibration(delayMs: Long) {
+    if (autoWhiteBalanceCalibrateRunnable != null) return
+    val runnable = Runnable {
+      autoWhiteBalanceCalibrateRunnable = null
+      if (isDestroyed) return@Runnable
+      val config = configuration ?: return@Runnable
+      if (!config.autoWhiteBalanceCalibrateOnWhite || !config.isActive) return@Runnable
+      callback.onAutoWhiteBalanceCalibrated()
+    }
+    autoWhiteBalanceCalibrateRunnable = runnable
+    autoWhiteBalanceHandler.postDelayed(runnable, delayMs)
   }
 
   internal fun scheduleAutoWhiteBalanceLock(delayMs: Long) {

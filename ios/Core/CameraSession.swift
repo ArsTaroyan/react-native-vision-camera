@@ -35,6 +35,7 @@ final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
   var orientationManager = OrientationManager()
   var autoWhiteBalanceLocked = false
   var autoWhiteBalanceLockWorkItem: DispatchWorkItem?
+  var autoWhiteBalanceCalibrateWorkItem: DispatchWorkItem?
   var lastAutoWhiteBalanceCalibrateOnWhite = false
 
   // Callbacks
@@ -263,8 +264,10 @@ final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
       captureSession.startRunning()
       delegate?.onCameraStarted()
       scheduleAutoWhiteBalanceLockIfNeeded(configuration: configuration)
+      scheduleAutoWhiteBalanceCalibrationIfNeeded(configuration: configuration)
     } else {
       resetAutoWhiteBalanceLock()
+      resetAutoWhiteBalanceCalibration()
       captureSession.stopRunning()
       delegate?.onCameraStopped()
     }
