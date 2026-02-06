@@ -35,10 +35,13 @@ extension CameraSession {
         device.focusMode = .autoFocus
       }
 
-      // Set Exposure
-      if device.isExposurePointOfInterestSupported {
+      // Set Exposure (respect autoExposure setting)
+      let autoExposureEnabled = (configuration?.autoExposure ?? true) || (configuration?.autoWhiteBalanceCalibrateOnWhite ?? false)
+      if device.isExposurePointOfInterestSupported, autoExposureEnabled {
         device.exposurePointOfInterest = point
         device.exposureMode = .autoExpose
+      } else if !autoExposureEnabled, device.isExposureModeSupported(.locked) {
+        device.exposureMode = .locked
       }
 
       // Remove any existing listeners
@@ -74,10 +77,15 @@ extension CameraSession {
       device.focusMode = .continuousAutoFocus
     }
 
-    // Reset Exposure to continuous/auto
-    if device.isExposurePointOfInterestSupported {
+    // Reset Exposure to continuous/auto (respect autoExposure setting)
+    let autoExposureEnabled = (configuration?.autoExposure ?? true) || (configuration?.autoWhiteBalanceCalibrateOnWhite ?? false)
+    if device.isExposurePointOfInterestSupported, autoExposureEnabled {
       device.exposurePointOfInterest = CGPoint(x: 0.5, y: 0.5)
       device.exposureMode = .continuousAutoExposure
+    } else if !autoExposureEnabled, device.isExposureModeSupported(.locked) {
+      if device.exposureMode != .locked {
+        device.exposureMode = .locked
+      }
     }
 
     // Disable listeners

@@ -385,8 +385,18 @@ internal fun CameraSession.configureSideProps(config: CameraConfiguration) {
     camera.cameraControl.enableTorch(newTorch)
   }
 
+  val isCalibratingWhiteBalance = config.autoWhiteBalanceCalibrateOnWhite
+  val calibrationStarted = isCalibratingWhiteBalance && !lastAutoWhiteBalanceCalibrateOnWhite
+  val calibrationEnded = !isCalibratingWhiteBalance && lastAutoWhiteBalanceCalibrateOnWhite
+  val effectiveAutoExposure = config.autoExposure || isCalibratingWhiteBalance
+  val effectiveAutoWhiteBalance = config.autoWhiteBalance || isCalibratingWhiteBalance
+
+  if (calibrationStarted) {
+    resetAutoWhiteBalanceLock()
+  }
+
   // Exposure (only when auto exposure is enabled)
-  if (config.autoExposure) {
+  if (effectiveAutoExposure) {
     val currentExposureCompensation = camera.cameraInfo.exposureState.exposureCompensationIndex
     val exposureCompensation = config.exposure?.roundToInt() ?: 0
     if (currentExposureCompensation != exposureCompensation) {
@@ -397,7 +407,7 @@ internal fun CameraSession.configureSideProps(config: CameraConfiguration) {
   // Auto Exposure (AE) lock
   val camera2Control = Camera2CameraControl.from(camera.cameraControl)
   val requestBuilder = CaptureRequestOptions.Builder()
-  if (config.autoExposure) {
+  if (effectiveAutoExposure) {
     requestBuilder
       .setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
       .setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK, false)
@@ -408,25 +418,17 @@ internal fun CameraSession.configureSideProps(config: CameraConfiguration) {
   }
 
   // White Balance (AWB auto vs fixed temperature)
-  if (config.autoWhiteBalance) {
-    val calibrationRequested = config.autoWhiteBalanceCalibrateOnWhite
-    val calibrationEdge = calibrationRequested && !lastAutoWhiteBalanceCalibrateOnWhite
-    if (calibrationEdge) {
-      autoWhiteBalanceLocked = false
-      scheduleAutoWhiteBalanceLock(config.autoWhiteBalanceCalibrateDelay)
-    } else if (config.autoWhiteBalanceLock && !autoWhiteBalanceLocked && config.isActive) {
+  if (effectiveAutoWhiteBalance) {
+    if (!isCalibratingWhiteBalance && config.autoWhiteBalanceLock && !autoWhiteBalanceLocked && config.isActive) {
       scheduleAutoWhiteBalanceLock(config.autoWhiteBalanceLockDelay)
     }
 
-    val shouldLock = autoWhiteBalanceLocked
+    val shouldLock = autoWhiteBalanceLocked && !isCalibratingWhiteBalance
     requestBuilder
       .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
       .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, shouldLock)
-
-    lastAutoWhiteBalanceCalibrateOnWhite = calibrationRequested
   } else {
     resetAutoWhiteBalanceLock()
-    lastAutoWhiteBalanceCalibrateOnWhite = false
     val temperature = config.whiteBalanceTemperature
     if (temperature != null) {
       requestBuilder
@@ -442,16 +444,18 @@ internal fun CameraSession.configureSideProps(config: CameraConfiguration) {
     }
   }
   camera2Control.setCaptureRequestOptions(requestBuilder.build())
+  if (calibrationEnded && !config.autoWhiteBalance) {
+    callback.onAutoWhiteBalanceCalibrated()
+  }
+  lastAutoWhiteBalanceCalibrateOnWhite = isCalibratingWhiteBalance
 }
 
 internal fun CameraSession.configureIsActive(config: CameraConfiguration) {
   if (config.isActive) {
     lifecycleRegistry.currentState = Lifecycle.State.STARTED
     lifecycleRegistry.currentState = Lifecycle.State.RESUMED
-    if (config.autoWhiteBalance && !autoWhiteBalanceLocked) {
-      if (config.autoWhiteBalanceCalibrateOnWhite) {
-        scheduleAutoWhiteBalanceLock(config.autoWhiteBalanceCalibrateDelay)
-      } else if (config.autoWhiteBalanceLock) {
+    if (config.autoWhiteBalance && !autoWhiteBalanceLocked && !config.autoWhiteBalanceCalibrateOnWhite) {
+      if (config.autoWhiteBalanceLock) {
         scheduleAutoWhiteBalanceLock(config.autoWhiteBalanceLockDelay)
       }
     }

@@ -93,6 +93,7 @@ class CameraView(context: Context) :
   var autoWhiteBalanceLockDelay: Long = 700
   var autoWhiteBalanceCalibrateOnWhite = false
   var autoWhiteBalanceCalibrateDelay: Long = 300
+  var enableWhiteBalanceTemperature = true
   var whiteBalanceTemperature: Double? = null
   var outputOrientation: OutputOrientation = OutputOrientation.DEVICE
   var androidPreviewViewType: PreviewViewType = PreviewViewType.SURFACE_VIEW
@@ -182,7 +183,7 @@ class CameraView(context: Context) :
 
         // Photo
         if (photo) {
-          config.photo = CameraConfiguration.Output.Enabled.create(CameraConfiguration.Photo(isMirrored, photoHdr, photoQualityBalance))
+          config.photo = CameraConfiguration.Output.Enabled.create(CameraConfiguration.Photo(isMirrored, false, photoQualityBalance))
         } else {
           config.photo = CameraConfiguration.Output.Disabled.create()
         }
@@ -191,7 +192,7 @@ class CameraView(context: Context) :
         if (video || enableFrameProcessor) {
           config.video =
             CameraConfiguration.Output.Enabled.create(
-              CameraConfiguration.Video(isMirrored, videoHdr, videoBitRateOverride, videoBitRateMultiplier)
+              CameraConfiguration.Video(isMirrored, false, videoBitRateOverride, videoBitRateMultiplier)
             )
         } else {
           config.video = CameraConfiguration.Output.Disabled.create()
@@ -236,13 +237,13 @@ class CameraView(context: Context) :
         config.enableLowLightBoost = lowLightBoost
         config.torch = torch
         config.exposure = null
-        config.autoExposure = false
+        config.autoExposure = autoExposure
         config.autoWhiteBalance = autoWhiteBalance
         config.autoWhiteBalanceLock = autoWhiteBalanceLock
         config.autoWhiteBalanceLockDelay = autoWhiteBalanceLockDelay
         config.autoWhiteBalanceCalibrateOnWhite = autoWhiteBalanceCalibrateOnWhite
         config.autoWhiteBalanceCalibrateDelay = autoWhiteBalanceCalibrateDelay
-        config.whiteBalanceTemperature = whiteBalanceTemperature
+        config.whiteBalanceTemperature = if (enableWhiteBalanceTemperature) whiteBalanceTemperature else null
 
         // Zoom
         config.zoom = zoom

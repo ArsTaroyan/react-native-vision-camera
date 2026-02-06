@@ -59,6 +59,7 @@ RCT_EXPORT_VIEW_PROPERTY(autoWhiteBalanceLockDelay, NSNumber);
 RCT_EXPORT_VIEW_PROPERTY(autoWhiteBalanceCalibrateOnWhite, BOOL);
 RCT_EXPORT_VIEW_PROPERTY(autoWhiteBalanceCalibrateDelay, NSNumber);
 RCT_EXPORT_VIEW_PROPERTY(autoExposure, BOOL);
+RCT_EXPORT_VIEW_PROPERTY(enableWhiteBalanceTemperature, BOOL);
 RCT_EXPORT_VIEW_PROPERTY(whiteBalanceTemperature, NSNumber);
 RCT_EXPORT_VIEW_PROPERTY(enableZoomGesture, BOOL);
 RCT_EXPORT_VIEW_PROPERTY(outputOrientation, NSString);

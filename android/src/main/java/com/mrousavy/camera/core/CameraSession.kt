@@ -199,6 +199,7 @@ class CameraSession(internal val context: Context, internal val callback: Callba
     autoWhiteBalanceLocked = false
     autoWhiteBalanceLockRunnable?.let { autoWhiteBalanceHandler.removeCallbacks(it) }
     autoWhiteBalanceLockRunnable = null
+    lastAutoWhiteBalanceCalibrateOnWhite = false
   }
 
   internal fun scheduleAutoWhiteBalanceLock(delayMs: Long) {
@@ -208,7 +209,7 @@ class CameraSession(internal val context: Context, internal val callback: Callba
       if (isDestroyed) return@Runnable
       val config = configuration ?: return@Runnable
       if (!config.autoWhiteBalance || !config.isActive) return@Runnable
-      if (!config.autoWhiteBalanceLock && !config.autoWhiteBalanceCalibrateOnWhite) return@Runnable
+      if (!config.autoWhiteBalanceLock) return@Runnable
       autoWhiteBalanceLocked = true
       applyAutoWhiteBalanceLock(true)
       callback.onAutoWhiteBalanceCalibrated()

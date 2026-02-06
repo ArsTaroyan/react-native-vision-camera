@@ -66,6 +66,7 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
   @objc var autoWhiteBalanceLockDelay: NSNumber = 700
   @objc var autoWhiteBalanceCalibrateOnWhite = false
   @objc var autoWhiteBalanceCalibrateDelay: NSNumber = 300
+  @objc var enableWhiteBalanceTemperature = true
   @objc var autoExposure = true
   @objc var whiteBalanceTemperature: NSNumber?
   @objc var videoStabilizationMode: NSString?
@@ -218,7 +219,7 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
       if video || enableFrameProcessor {
         config.video = .enabled(config: CameraConfiguration.Video(pixelFormat: getPixelFormat(),
                                                                   enableBufferCompression: enableBufferCompression,
-                                                                  enableHdr: videoHdr,
+                                                                  enableHdr: false, // HDR disabled at library level
                                                                   enableFrameProcessor: enableFrameProcessor))
       } else {
         config.video = .disabled
@@ -276,8 +277,8 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
       config.autoWhiteBalanceLockDelay = autoWhiteBalanceLockDelay.doubleValue
       config.autoWhiteBalanceCalibrateOnWhite = autoWhiteBalanceCalibrateOnWhite
       config.autoWhiteBalanceCalibrateDelay = autoWhiteBalanceCalibrateDelay.doubleValue
-      config.autoExposure = false
-      config.whiteBalanceTemperature = whiteBalanceTemperature?.floatValue
+      config.autoExposure = autoExposure
+      config.whiteBalanceTemperature = enableWhiteBalanceTemperature ? whiteBalanceTemperature?.floatValue : nil
       config.exposure = nil
 
       // Zoom

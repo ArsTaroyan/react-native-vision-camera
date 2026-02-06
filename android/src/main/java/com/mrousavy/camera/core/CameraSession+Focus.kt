@@ -11,7 +11,14 @@ import com.mrousavy.camera.core.extensions.await
 suspend fun CameraSession.focus(meteringPoint: MeteringPoint) {
   val camera = camera ?: throw CameraNotReadyError()
 
-  val action = FocusMeteringAction.Builder(meteringPoint).build()
+  val config = configuration
+  val isCalibratingWhiteBalance = config?.autoWhiteBalanceCalibrateOnWhite ?: false
+  val aeEnabled = (config?.autoExposure ?: true) || isCalibratingWhiteBalance
+  val awbEnabled = (config?.autoWhiteBalance ?: true) || isCalibratingWhiteBalance
+  var flags = FocusMeteringAction.FLAG_AF
+  if (aeEnabled) flags = flags or FocusMeteringAction.FLAG_AE
+  if (awbEnabled) flags = flags or FocusMeteringAction.FLAG_AWB
+  val action = FocusMeteringAction.Builder(meteringPoint, flags).build()
   if (!camera.cameraInfo.isFocusMeteringSupported(action)) {
     throw FocusNotSupportedError()
   }

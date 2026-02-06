@@ -271,6 +271,11 @@ class CameraViewManager : ViewGroupManager<CameraView>() {
     view.autoWhiteBalanceCalibrateDelay = autoWhiteBalanceCalibrateDelay.roundToLong()
   }
 
+  @ReactProp(name = "enableWhiteBalanceTemperature", defaultBoolean = true)
+  fun setEnableWhiteBalanceTemperature(view: CameraView, enableWhiteBalanceTemperature: Boolean) {
+    view.enableWhiteBalanceTemperature = enableWhiteBalanceTemperature
+  }
+
   @ReactProp(name = "whiteBalanceTemperature", defaultDouble = -1.0)
   fun setWhiteBalanceTemperature(view: CameraView, whiteBalanceTemperature: Double) {
     view.whiteBalanceTemperature = if (whiteBalanceTemperature > 0) whiteBalanceTemperature else null
