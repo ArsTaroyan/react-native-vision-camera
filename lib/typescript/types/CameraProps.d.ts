@@ -159,8 +159,9 @@ export interface CameraProps extends ViewProps {
      */
     autoWhiteBalanceLockDelay?: number;
     /**
-     * When `true`, the Camera will calibrate white balance once (while you point at white/gray),
-     * then lock it to keep the image neutral in colored lighting.
+     * When `true`, the Camera will temporarily enable Auto White Balance and Auto Exposure
+     * so the system can converge on a neutral white/gray reference. When it switches back to `false`,
+     * the current values are locked and used for subsequent frames.
      *
      * @default false
      */
@@ -173,7 +174,15 @@ export interface CameraProps extends ViewProps {
      */
     autoWhiteBalanceCalibrateDelay?: number;
     /**
-     * Locks the white balance to a fixed temperature (in Kelvin) when `autoWhiteBalance` is `false`.
+     * Enables or disables manual white balance temperature selection via {@linkcode whiteBalanceTemperature}.
+     * When `false`, {@linkcode whiteBalanceTemperature} is ignored.
+     *
+     * @default true
+     */
+    enableWhiteBalanceTemperature?: boolean;
+    /**
+     * Locks the white balance to a fixed temperature (in Kelvin) when `autoWhiteBalance` is `false`
+     * and {@linkcode enableWhiteBalanceTemperature} is `true`.
      * If not set, the current AWB value will be locked instead.
      */
     whiteBalanceTemperature?: number;
