@@ -56,6 +56,17 @@ export interface WhiteBalanceShadingCorrectionOptions {
    * Optional callback that receives the corrected sample color (post gain).
    */
   onSample?: (rgb: WhiteBalanceSample) => void
+  /**
+   * Aggressively normalize illumination so calibration white becomes neutral/bright.
+   * This boosts darker regions using a target luma from bright pixels.
+   * @default false
+   */
+  forceWhite?: boolean
+  /**
+   * Percentile (0..1) of brightest pixels used as target luma when forceWhite is enabled.
+   * @default 0.9
+   */
+  targetLumaPercentile?: number
 }
 
 export interface WhiteBalanceSample {
@@ -112,6 +123,8 @@ function computeGainMap(
   minGain: number,
   maxGain: number,
   minLuma: number,
+  forceWhite: boolean,
+  targetLumaPercentile: number,
 ): GainMapResult | null {
   'worklet'
   const Skia = SkiaProxy.Skia
@@ -134,6 +147,28 @@ function computeGainMap(
   const cellHeight = height / mapHeight
   const step = Math.max(1, sampleStep)
   const eps = 1.0
+
+  let targetLuma = 0
+  if (forceWhite) {
+    const percentile = clamp(targetLumaPercentile, 0.5, 0.99)
+    const lumas: number[] = []
+    for (let y = 0; y < height; y += step) {
+      const row = y * bytesPerRow
+      for (let x = 0; x < width; x += step) {
+        const idx = row + x * 4
+        const r = data[idx + rOffset]
+        const g = data[idx + gOffset]
+        const b = data[idx + bOffset]
+        lumas.push((r + g + b) / 3)
+      }
+    }
+
+    if (lumas.length > 0) {
+      lumas.sort((a, b) => a - b)
+      const targetIndex = Math.min(lumas.length - 1, Math.floor(lumas.length * percentile))
+      targetLuma = lumas[targetIndex]
+    }
+  }
 
   for (let my = 0; my < mapHeight; my++) {
     const yStart = Math.floor(my * cellHeight)
@@ -171,7 +206,11 @@ function computeGainMap(
         const b = sumB / count
         const avg = (r + g + b) / 3
 
-        if (avg >= minLuma) {
+        if (forceWhite && targetLuma > 0) {
+          gainR = clamp(targetLuma / (r + eps), minGain, maxGain)
+          gainG = clamp(targetLuma / (g + eps), minGain, maxGain)
+          gainB = clamp(targetLuma / (b + eps), minGain, maxGain)
+        } else if (avg >= minLuma) {
           gainR = clamp(avg / (r + eps), minGain, maxGain)
           gainG = clamp(avg / (g + eps), minGain, maxGain)
           gainB = clamp(avg / (b + eps), minGain, maxGain)
@@ -291,6 +330,8 @@ export function useWhiteBalanceShadingCorrection(
   const minGain = options.minGain ?? 0.5
   const maxGain = options.maxGain ?? 2.0
   const minLuma = options.minLuma ?? 8
+  const forceWhite = options.forceWhite ?? false
+  const targetLumaPercentile = options.targetLumaPercentile ?? 0.9
   const samplePoint = options.samplePoint ?? { x: 0.5, y: 0.5 }
   const samplePointX = samplePoint.x ?? 0.5
   const samplePointY = samplePoint.y ?? 0.5
@@ -361,7 +402,18 @@ export function useWhiteBalanceShadingCorrection(
 
       if (shouldCapture.value) {
         shouldCapture.value = false
-        const result = computeGainMap(frame, isIOS, mapWidth, mapHeight, sampleStep, minGain, maxGain, minLuma)
+        const result = computeGainMap(
+          frame,
+          isIOS,
+          mapWidth,
+          mapHeight,
+          sampleStep,
+          minGain,
+          maxGain,
+          minLuma,
+          forceWhite,
+          targetLumaPercentile,
+        )
         if (result != null) {
           if (gainMap.value != null) gainMap.value.dispose()
           gainMap.value = result.image
@@ -439,6 +491,8 @@ export function useWhiteBalanceShadingCorrection(
       minGain,
       maxGain,
       minLuma,
+      forceWhite,
+      targetLumaPercentile,
       samplePointX,
       samplePointY,
       sampleRadius,
