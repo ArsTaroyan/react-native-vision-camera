@@ -4,7 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioManager
-import android.media.ImageFormat
+import android.graphics.ImageFormat
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -19,6 +19,7 @@ import androidx.camera.core.Camera
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.core.UseCase
 import androidx.camera.lifecycle.ProcessCameraProvider
