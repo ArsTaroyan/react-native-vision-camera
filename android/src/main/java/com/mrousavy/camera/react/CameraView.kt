@@ -391,11 +391,6 @@ class CameraView(context: Context) :
   }
 
   override fun onAutoWhiteBalanceCalibrated() {
-    if (autoWhiteBalanceCalibrateOnWhite) {
-      forceAutoExposureOff = true
-      forceAutoWhiteBalanceOff = true
-      update()
-    }
     invokeOnAutoWhiteBalanceCalibrated()
   }
 }
