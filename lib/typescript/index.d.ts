@@ -24,4 +24,5 @@ export * from './frame-processors/runAsync';
 export * from './frame-processors/runAtTargetFps';
 export * from './frame-processors/VisionCameraProxy';
 export * from './skia/useSkiaFrameProcessor';
+export * from './skia/useWhiteBalanceShadingCorrection';
 //# sourceMappingURL=index.d.ts.map

@@ -156,9 +156,9 @@ function computeGainMap(
       const row = y * bytesPerRow
       for (let x = 0; x < width; x += step) {
         const idx = row + x * 4
-        const r = data[idx + rOffset]
-        const g = data[idx + gOffset]
-        const b = data[idx + bOffset]
+        const r = data[idx + rOffset] ?? 0
+        const g = data[idx + gOffset] ?? 0
+        const b = data[idx + bOffset] ?? 0
         lumas.push((r + g + b) / 3)
       }
     }
@@ -166,7 +166,7 @@ function computeGainMap(
     if (lumas.length > 0) {
       lumas.sort((a, b) => a - b)
       const targetIndex = Math.min(lumas.length - 1, Math.floor(lumas.length * percentile))
-      targetLuma = lumas[targetIndex]
+      targetLuma = lumas[targetIndex] ?? 0
     }
   }
 
@@ -186,9 +186,9 @@ function computeGainMap(
         const row = y * bytesPerRow
         for (let x = xStart; x < xEnd; x += step) {
           const idx = row + x * 4
-          const r = data[idx + rOffset]
-          const g = data[idx + gOffset]
-          const b = data[idx + bOffset]
+          const r = data[idx + rOffset] ?? 0
+          const g = data[idx + gOffset] ?? 0
+          const b = data[idx + bOffset] ?? 0
           sumR += r
           sumG += g
           sumB += b
@@ -229,11 +229,12 @@ function computeGainMap(
     }
   }
 
+  const SkiaAny = Skia as any
   const imageInfo = {
     width: mapWidth,
     height: mapHeight,
-    colorType: Skia.ColorType.RGBA_8888,
-    alphaType: Skia.AlphaType.Unpremul,
+    colorType: SkiaAny.ColorType.RGBA_8888,
+    alphaType: SkiaAny.AlphaType.Unpremul,
   }
   const skData = Skia.Data.fromBytes(gains)
   const image = Skia.Image.MakeImage(imageInfo, skData, mapWidth * 4)
@@ -289,9 +290,9 @@ function sampleCorrectedColor(
     const cellY = Math.min(mapHeight - 1, Math.floor(y / cellHeight))
     for (let x = startX; x <= endX; x++) {
       const idx = row + x * 4
-      const r = data[idx + rOffset]
-      const g = data[idx + gOffset]
-      const b = data[idx + bOffset]
+      const r = data[idx + rOffset] ?? 0
+      const g = data[idx + gOffset] ?? 0
+      const b = data[idx + bOffset] ?? 0
 
       let gainR = 1.0
       let gainG = 1.0
@@ -389,6 +390,7 @@ export function useWhiteBalanceShadingCorrection(
     (frame) => {
       'worklet'
       const Skia = SkiaProxy.Skia
+      const SkiaAny = Skia as any
       const cache = globalThis as unknown as { __visionCameraWbRuntimeEffect?: unknown }
       let runtimeEffect = cache.__visionCameraWbRuntimeEffect
       if (runtimeEffect == null) {
@@ -451,10 +453,10 @@ export function useWhiteBalanceShadingCorrection(
       }
 
       const frameShader = frame.__skImage.makeShaderOptions(
-        Skia.TileMode.Clamp,
-        Skia.TileMode.Clamp,
-        Skia.FilterMode.Linear,
-        Skia.MipmapMode.None,
+        SkiaAny.TileMode.Clamp,
+        SkiaAny.TileMode.Clamp,
+        SkiaAny.FilterMode.Linear,
+        SkiaAny.MipmapMode.None,
       )
 
       const scaleX = map.width() / frame.width
@@ -462,10 +464,10 @@ export function useWhiteBalanceShadingCorrection(
       const matrix = Skia.Matrix()
       matrix.scale(scaleX, scaleY)
       const gainShader = map.makeShaderOptions(
-        Skia.TileMode.Clamp,
-        Skia.TileMode.Clamp,
-        Skia.FilterMode.Linear,
-        Skia.MipmapMode.None,
+        SkiaAny.TileMode.Clamp,
+        SkiaAny.TileMode.Clamp,
+        SkiaAny.FilterMode.Linear,
+        SkiaAny.MipmapMode.None,
         matrix,
       )
 
