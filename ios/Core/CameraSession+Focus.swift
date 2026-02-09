@@ -35,8 +35,11 @@ extension CameraSession {
         device.focusMode = .autoFocus
       }
 
-      // Set Exposure (respect autoExposure setting)
-      let autoExposureEnabled = (configuration?.autoExposure ?? true) || (configuration?.autoWhiteBalanceCalibrateOnWhite ?? false)
+      // Set Exposure (respect autoExposure setting + calibration state)
+      let wantsCalibration = configuration?.autoWhiteBalanceCalibrateOnWhite ?? false
+      let isCalibratingWhiteBalance = wantsCalibration && !autoWhiteBalanceCalibrated
+      let shouldLockAfterCalibration = wantsCalibration && autoWhiteBalanceCalibrated
+      let autoExposureEnabled = ((configuration?.autoExposure ?? true) || isCalibratingWhiteBalance) && !shouldLockAfterCalibration
       if device.isExposurePointOfInterestSupported, autoExposureEnabled {
         device.exposurePointOfInterest = point
         device.exposureMode = .autoExpose
@@ -77,8 +80,11 @@ extension CameraSession {
       device.focusMode = .continuousAutoFocus
     }
 
-    // Reset Exposure to continuous/auto (respect autoExposure setting)
-    let autoExposureEnabled = (configuration?.autoExposure ?? true) || (configuration?.autoWhiteBalanceCalibrateOnWhite ?? false)
+    // Reset Exposure to continuous/auto (respect autoExposure setting + calibration state)
+    let wantsCalibration = configuration?.autoWhiteBalanceCalibrateOnWhite ?? false
+    let isCalibratingWhiteBalance = wantsCalibration && !autoWhiteBalanceCalibrated
+    let shouldLockAfterCalibration = wantsCalibration && autoWhiteBalanceCalibrated
+    let autoExposureEnabled = ((configuration?.autoExposure ?? true) || isCalibratingWhiteBalance) && !shouldLockAfterCalibration
     if device.isExposurePointOfInterestSupported, autoExposureEnabled {
       device.exposurePointOfInterest = CGPoint(x: 0.5, y: 0.5)
       device.exposureMode = .continuousAutoExposure

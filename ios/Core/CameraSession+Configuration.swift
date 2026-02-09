@@ -45,6 +45,7 @@ extension CameraSession {
     captureSession.addInput(input)
     videoDeviceInput = input
     resetAutoWhiteBalanceLock()
+    autoWhiteBalanceCalibrated = false
 
     // Update Orientation manager (uses device relative sensor orientation)
     orientationManager.setInputDevice(videoDevice)
@@ -275,15 +276,21 @@ extension CameraSession {
       device.automaticallyEnablesLowLightBoostWhenAvailable = configuration.enableLowLightBoost
     }
 
-    let isCalibratingWhiteBalance = configuration.autoWhiteBalanceCalibrateOnWhite
+    let wantsCalibration = configuration.autoWhiteBalanceCalibrateOnWhite
+    if !wantsCalibration {
+      autoWhiteBalanceCalibrated = false
+    }
+    let isCalibratingWhiteBalance = wantsCalibration && !autoWhiteBalanceCalibrated
     let calibrationStarted = isCalibratingWhiteBalance && !lastAutoWhiteBalanceCalibrateOnWhite
     let calibrationEnded = !isCalibratingWhiteBalance && lastAutoWhiteBalanceCalibrateOnWhite
-    let effectiveAutoExposure = configuration.autoExposure || isCalibratingWhiteBalance
-    let effectiveAutoWhiteBalance = configuration.autoWhiteBalance || isCalibratingWhiteBalance
+    let shouldLockAfterCalibration = wantsCalibration && autoWhiteBalanceCalibrated
+    let effectiveAutoExposure = (configuration.autoExposure || isCalibratingWhiteBalance) && !shouldLockAfterCalibration
+    let effectiveAutoWhiteBalance = (configuration.autoWhiteBalance || isCalibratingWhiteBalance) && !shouldLockAfterCalibration
 
     if calibrationStarted {
       // Ensure AWB is unlocked while calibrating
       resetAutoWhiteBalanceLock()
+      autoWhiteBalanceCalibrated = false
       scheduleAutoWhiteBalanceCalibrationIfNeeded(configuration: configuration)
     }
     if calibrationEnded {
@@ -534,6 +541,9 @@ extension CameraSession {
     guard configuration.autoWhiteBalanceCalibrateOnWhite else {
       return
     }
+    guard !autoWhiteBalanceCalibrated else {
+      return
+    }
     if autoWhiteBalanceCalibrateWorkItem != nil {
       return
     }
@@ -550,14 +560,25 @@ extension CameraSession {
       }
       guard let device = self.videoDeviceInput?.device else {
         self.delegate?.onAutoWhiteBalanceCalibrated(temperature: nil, tint: nil)
+        self.autoWhiteBalanceCalibrated = true
         return
       }
-      let gains = device.deviceWhiteBalanceGains
-      let tempTint = device.temperatureAndTintValues(for: gains)
-      self.delegate?.onAutoWhiteBalanceCalibrated(
-        temperature: tempTint.temperature,
-        tint: tempTint.tint
-      )
+      do {
+        try device.lockForConfiguration()
+        defer { device.unlockForConfiguration() }
+        // Lock current WB/Exposure immediately after calibration
+        self.lockWhiteBalanceToCurrent(device: device, emitEvent: true)
+        self.lockExposureToCurrent(device: device)
+        self.autoWhiteBalanceCalibrated = true
+      } catch {
+        let gains = device.deviceWhiteBalanceGains
+        let tempTint = device.temperatureAndTintValues(for: gains)
+        self.delegate?.onAutoWhiteBalanceCalibrated(
+          temperature: tempTint.temperature,
+          tint: tempTint.tint
+        )
+        self.autoWhiteBalanceCalibrated = true
+      }
     }
 
     autoWhiteBalanceCalibrateWorkItem = workItem

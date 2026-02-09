@@ -36,3 +36,4 @@ export * from './frame-processors/VisionCameraProxy'
 
 // Skia Frame Processors
 export * from './skia/useSkiaFrameProcessor'
+export * from './skia/useWhiteBalanceShadingCorrection'

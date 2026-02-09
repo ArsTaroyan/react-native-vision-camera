@@ -71,6 +71,7 @@ class CameraSession(internal val context: Context, internal val callback: Callba
   internal val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
   internal var autoWhiteBalanceLocked = false
   internal var lastAutoWhiteBalanceCalibrateOnWhite = false
+  internal var autoWhiteBalanceCalibrated = false
   private val autoWhiteBalanceHandler = Handler(Looper.getMainLooper())
   private var autoWhiteBalanceLockRunnable: Runnable? = null
   private var autoWhiteBalanceCalibrateRunnable: Runnable? = null
@@ -210,12 +211,17 @@ class CameraSession(internal val context: Context, internal val callback: Callba
   }
 
   internal fun scheduleAutoWhiteBalanceCalibration(delayMs: Long) {
+    if (autoWhiteBalanceCalibrated) return
     if (autoWhiteBalanceCalibrateRunnable != null) return
     val runnable = Runnable {
       autoWhiteBalanceCalibrateRunnable = null
       if (isDestroyed) return@Runnable
       val config = configuration ?: return@Runnable
       if (!config.autoWhiteBalanceCalibrateOnWhite || !config.isActive) return@Runnable
+      autoWhiteBalanceLocked = true
+      applyAutoExposureLock(true)
+      applyAutoWhiteBalanceLock(true)
+      autoWhiteBalanceCalibrated = true
       callback.onAutoWhiteBalanceCalibrated()
     }
     autoWhiteBalanceCalibrateRunnable = runnable
@@ -244,6 +250,15 @@ class CameraSession(internal val context: Context, internal val callback: Callba
     val requestBuilder = CaptureRequestOptions.Builder()
       .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
       .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, lock)
+    camera2Control.setCaptureRequestOptions(requestBuilder.build())
+  }
+
+  internal fun applyAutoExposureLock(lock: Boolean) {
+    val camera = camera ?: return
+    val camera2Control = Camera2CameraControl.from(camera.cameraControl)
+    val requestBuilder = CaptureRequestOptions.Builder()
+      .setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+      .setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK, lock)
     camera2Control.setCaptureRequestOptions(requestBuilder.build())
   }
 

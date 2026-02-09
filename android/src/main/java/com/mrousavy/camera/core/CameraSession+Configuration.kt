@@ -335,6 +335,7 @@ internal suspend fun CameraSession.configureCamera(provider: ProcessCameraProvid
   Log.i(CameraSession.TAG, "Binding ${useCases.size} use-cases...")
   camera = provider.bindToLifecycle(this, cameraSelector, *useCases.toTypedArray())
   resetAutoWhiteBalanceLock()
+  autoWhiteBalanceCalibrated = false
   // Notify callback
   callback.onInitialized()
 
@@ -385,14 +386,20 @@ internal fun CameraSession.configureSideProps(config: CameraConfiguration) {
     camera.cameraControl.enableTorch(newTorch)
   }
 
-  val isCalibratingWhiteBalance = config.autoWhiteBalanceCalibrateOnWhite
+  val wantsCalibration = config.autoWhiteBalanceCalibrateOnWhite
+  if (!wantsCalibration) {
+    autoWhiteBalanceCalibrated = false
+  }
+  val isCalibratingWhiteBalance = wantsCalibration && !autoWhiteBalanceCalibrated
   val calibrationStarted = isCalibratingWhiteBalance && !lastAutoWhiteBalanceCalibrateOnWhite
   val calibrationEnded = !isCalibratingWhiteBalance && lastAutoWhiteBalanceCalibrateOnWhite
-  val effectiveAutoExposure = config.autoExposure || isCalibratingWhiteBalance
-  val effectiveAutoWhiteBalance = config.autoWhiteBalance || isCalibratingWhiteBalance
+  val shouldLockAfterCalibration = wantsCalibration && autoWhiteBalanceCalibrated
+  val effectiveAutoExposure = (config.autoExposure || isCalibratingWhiteBalance) && !shouldLockAfterCalibration
+  val effectiveAutoWhiteBalance = (config.autoWhiteBalance || isCalibratingWhiteBalance) && !shouldLockAfterCalibration
 
   if (calibrationStarted) {
     resetAutoWhiteBalanceLock()
+    autoWhiteBalanceCalibrated = false
     scheduleAutoWhiteBalanceCalibration(config.autoWhiteBalanceCalibrateDelay)
   }
   if (calibrationEnded) {
@@ -466,6 +473,7 @@ internal fun CameraSession.configureIsActive(config: CameraConfiguration) {
   } else {
     resetAutoWhiteBalanceLock()
     resetAutoWhiteBalanceCalibration()
+    autoWhiteBalanceCalibrated = false
     lifecycleRegistry.currentState = Lifecycle.State.STARTED
     lifecycleRegistry.currentState = Lifecycle.State.CREATED
   }

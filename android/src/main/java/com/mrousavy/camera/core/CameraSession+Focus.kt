@@ -12,9 +12,11 @@ suspend fun CameraSession.focus(meteringPoint: MeteringPoint) {
   val camera = camera ?: throw CameraNotReadyError()
 
   val config = configuration
-  val isCalibratingWhiteBalance = config?.autoWhiteBalanceCalibrateOnWhite ?: false
-  val aeEnabled = (config?.autoExposure ?: true) || isCalibratingWhiteBalance
-  val awbEnabled = (config?.autoWhiteBalance ?: true) || isCalibratingWhiteBalance
+  val wantsCalibration = config?.autoWhiteBalanceCalibrateOnWhite ?: false
+  val isCalibratingWhiteBalance = wantsCalibration && !autoWhiteBalanceCalibrated
+  val shouldLockAfterCalibration = wantsCalibration && autoWhiteBalanceCalibrated
+  val aeEnabled = ((config?.autoExposure ?: true) || isCalibratingWhiteBalance) && !shouldLockAfterCalibration
+  val awbEnabled = ((config?.autoWhiteBalance ?: true) || isCalibratingWhiteBalance) && !shouldLockAfterCalibration
   var flags = FocusMeteringAction.FLAG_AF
   if (aeEnabled) flags = flags or FocusMeteringAction.FLAG_AE
   if (awbEnabled) flags = flags or FocusMeteringAction.FLAG_AWB
