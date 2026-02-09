@@ -386,6 +386,17 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
   }
 
   func onAutoWhiteBalanceCalibrated(temperature: Float?, tint: Float?) {
+    if autoWhiteBalanceCalibrateOnWhite {
+      forceAutoExposureOff = true
+      forceAutoWhiteBalanceOff = true
+
+      cameraSession.configure { config in
+        config.autoExposure = self.forceAutoExposureOff ? false : self.autoExposure
+        config.autoWhiteBalance = self.forceAutoWhiteBalanceOff ? false : self.autoWhiteBalance
+        config.autoWhiteBalanceCalibrateOnWhite = self.autoWhiteBalanceCalibrateOnWhite
+        config.autoWhiteBalanceCalibrateDelay = self.autoWhiteBalanceCalibrateDelay.doubleValue
+      }
+    }
     onAutoWhiteBalanceCalibratedEvent?([
       "temperature": temperature ?? NSNull(),
       "tint": tint ?? NSNull(),
