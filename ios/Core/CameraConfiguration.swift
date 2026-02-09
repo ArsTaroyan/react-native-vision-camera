@@ -138,6 +138,7 @@ final class CameraConfiguration {
       // photo, video, codeScanner
       outputsChanged = inputChanged || left?.photo != right.photo || left?.video != right.video
         || left?.codeScanner != right.codeScanner || left?.isMirrored != right.isMirrored
+        || left?.autoWhiteBalanceCalibrateOnWhite != right.autoWhiteBalanceCalibrateOnWhite
       // videoStabilizationMode
       videoStabilizationChanged = outputsChanged || left?.videoStabilizationMode != right.videoStabilizationMode
       // orientation

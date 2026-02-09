@@ -129,16 +129,17 @@ data class CameraConfiguration(
 
     fun difference(left: CameraConfiguration?, right: CameraConfiguration): Difference {
       // outputs
-      val outputsChanged = left?.photo != right.photo ||
-        left.video != right.video ||
-        left.enableLowLightBoost != right.enableLowLightBoost ||
-        left.videoStabilizationMode != right.videoStabilizationMode ||
-        left.frameProcessor != right.frameProcessor ||
-        left.codeScanner != right.codeScanner ||
-        left.preview != right.preview ||
-        left.format != right.format ||
-        left.minFps != right.minFps ||
-        left.maxFps != right.maxFps
+    val outputsChanged = left?.photo != right.photo ||
+      left.video != right.video ||
+      left.enableLowLightBoost != right.enableLowLightBoost ||
+      left.videoStabilizationMode != right.videoStabilizationMode ||
+      left.frameProcessor != right.frameProcessor ||
+      left.codeScanner != right.codeScanner ||
+      left.preview != right.preview ||
+      left.format != right.format ||
+      left.minFps != right.minFps ||
+      left.maxFps != right.maxFps ||
+      left.autoWhiteBalanceCalibrateOnWhite != right.autoWhiteBalanceCalibrateOnWhite
 
       // input device
       val deviceChanged = outputsChanged || left?.cameraId != right.cameraId

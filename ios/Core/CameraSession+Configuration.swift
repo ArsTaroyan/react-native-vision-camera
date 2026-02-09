@@ -99,7 +99,11 @@ extension CameraSession {
     }
 
     // Video Output + Frame Processor
-    if case .enabled = configuration.video {
+    let wantsVideoOutput: Bool = {
+      if case .enabled = configuration.video { return true }
+      return configuration.autoWhiteBalanceCalibrateOnWhite
+    }()
+    if wantsVideoOutput {
       VisionLogger.log(level: .info, message: "Adding Video Data output...")
 
       // 1. Add
@@ -208,23 +212,37 @@ extension CameraSession {
   }
 
   func configureVideoOutputFormat(configuration: CameraConfiguration) {
-    guard case let .enabled(video) = configuration.video,
-          let videoOutput else {
-      // Video is not enabled
+    guard let videoOutput else {
       return
     }
 
-    do {
-      // Configure the VideoOutput Settings to use the given Pixel Format.
-      // We need to run this after device.activeFormat has been set, otherwise the VideoOutput can't stream the given Pixel Format.
-      let pixelFormatType = try video.getPixelFormat(for: videoOutput)
-      videoOutput.videoSettings = [
-        String(kCVPixelBufferPixelFormatTypeKey): pixelFormatType,
+    if case let .enabled(video) = configuration.video {
+      do {
+        // Configure the VideoOutput Settings to use the given Pixel Format.
+        // We need to run this after device.activeFormat has been set, otherwise the VideoOutput can't stream the given Pixel Format.
+        let pixelFormatType = try video.getPixelFormat(for: videoOutput)
+        videoOutput.videoSettings = [
+          String(kCVPixelBufferPixelFormatTypeKey): pixelFormatType,
+        ]
+      } catch {
+        // Catch the error and send to JS as a soft-exception.
+        // The default PixelFormat will be used.
+        onConfigureError(error)
+      }
+      return
+    }
+
+    // Calibration-only video output: force a YUV format for lightweight sampling.
+    if configuration.autoWhiteBalanceCalibrateOnWhite {
+      let targetFormats = [
+        kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
+        kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
       ]
-    } catch {
-      // Catch the error and send to JS as a soft-exception.
-      // The default PixelFormat will be used.
-      onConfigureError(error)
+      if let format = videoOutput.findPixelFormat(firstOf: targetFormats) {
+        videoOutput.videoSettings = [
+          String(kCVPixelBufferPixelFormatTypeKey): format,
+        ]
+      }
     }
   }
 
@@ -291,6 +309,8 @@ extension CameraSession {
       // Ensure AWB is unlocked while calibrating
       resetAutoWhiteBalanceLock()
       autoWhiteBalanceCalibrated = false
+      autoWhiteBalanceCalibrationGains = nil
+      resetCalibrationStats()
       scheduleAutoWhiteBalanceCalibrationIfNeeded(configuration: configuration)
     }
     if calibrationEnded {
@@ -352,6 +372,21 @@ extension CameraSession {
         device.whiteBalanceMode = .locked
       }
       device.setWhiteBalanceModeLocked(with: gains, completionHandler: nil)
+    } else if let gains = autoWhiteBalanceCalibrationGains {
+      resetAutoWhiteBalanceLock()
+      guard device.isWhiteBalanceModeSupported(.locked) else {
+        return
+      }
+      let maxGain = device.maxWhiteBalanceGain
+      let clamped = AVCaptureDevice.WhiteBalanceGains(
+        redGain: min(max(gains.redGain, 1.0), maxGain),
+        greenGain: min(max(gains.greenGain, 1.0), maxGain),
+        blueGain: min(max(gains.blueGain, 1.0), maxGain)
+      )
+      if device.whiteBalanceMode != .locked {
+        device.whiteBalanceMode = .locked
+      }
+      device.setWhiteBalanceModeLocked(with: clamped, completionHandler: nil)
     } else if calibrationEnded {
       lockWhiteBalanceToCurrent(device: device, emitEvent: false)
     } else {
@@ -464,6 +499,33 @@ extension CameraSession {
     }
   }
 
+  func lockWhiteBalanceWithGains(device: AVCaptureDevice,
+                                 gains: AVCaptureDevice.WhiteBalanceGains,
+                                 emitEvent: Bool = true) {
+    guard device.isWhiteBalanceModeSupported(.locked) else {
+      return
+    }
+    let maxGain = device.maxWhiteBalanceGain
+    let clamped = AVCaptureDevice.WhiteBalanceGains(
+      redGain: min(max(gains.redGain, 1.0), maxGain),
+      greenGain: min(max(gains.greenGain, 1.0), maxGain),
+      blueGain: min(max(gains.blueGain, 1.0), maxGain)
+    )
+    if device.whiteBalanceMode != .locked {
+      device.whiteBalanceMode = .locked
+    }
+    device.setWhiteBalanceModeLocked(with: clamped, completionHandler: nil)
+    autoWhiteBalanceLocked = true
+
+    if emitEvent {
+      let tempTint = device.temperatureAndTintValues(for: clamped)
+      delegate?.onAutoWhiteBalanceCalibrated(
+        temperature: tempTint.temperature,
+        tint: tempTint.tint
+      )
+    }
+  }
+
   // pragma MARK: Audio
 
   /**
@@ -567,7 +629,12 @@ extension CameraSession {
         try device.lockForConfiguration()
         defer { device.unlockForConfiguration() }
         // Lock current WB/Exposure immediately after calibration
-        self.lockWhiteBalanceToCurrent(device: device, emitEvent: true)
+        if let gains = self.computeCalibrationGains(maxGain: device.maxWhiteBalanceGain) {
+          self.autoWhiteBalanceCalibrationGains = gains
+          self.lockWhiteBalanceWithGains(device: device, gains: gains, emitEvent: true)
+        } else {
+          self.lockWhiteBalanceToCurrent(device: device, emitEvent: true)
+        }
         self.lockExposureToCurrent(device: device)
         self.autoWhiteBalanceCalibrated = true
       } catch {

@@ -270,7 +270,36 @@ internal fun CameraSession.configureOutputs(configuration: CameraConfiguration) 
     frameProcessorOutput = null
   }
 
-  // 5. Code Scanner
+  // 5. Calibration (white balance)
+  if (configuration.autoWhiteBalanceCalibrateOnWhite) {
+    Log.i(CameraSession.TAG, "Creating White Balance calibration output...")
+    val analyzer = ImageAnalysis.Builder().also { analysis ->
+      analysis.setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+      analysis.setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
+      if (fpsRange != null) {
+        assertFormatRequirement("fps", format, InvalidFpsError(fpsRange.upper)) {
+          fpsRange.lower >= it.minFps &&
+            fpsRange.upper <= it.maxFps
+        }
+        analysis.setTargetFrameRate(fpsRange)
+      }
+      if (format != null) {
+        Log.i(CameraSession.TAG, "Calibration size: ${format.videoSize}")
+        val resolutionSelector = ResolutionSelector.Builder()
+          .forSize(format.videoSize)
+          .setAllowedResolutionMode(ResolutionSelector.PREFER_CAPTURE_RATE_OVER_HIGHER_RESOLUTION)
+          .build()
+        analysis.setResolutionSelector(resolutionSelector)
+      }
+    }.build()
+    val pipeline = WhiteBalanceCalibrationPipeline(this)
+    analyzer.setAnalyzer(CameraQueues.videoQueue.executor, pipeline)
+    calibrationOutput = analyzer
+  } else {
+    calibrationOutput = null
+  }
+
+  // 6. Code Scanner
   val codeScannerConfig = configuration.codeScanner as? CameraConfiguration.Output.Enabled<CameraConfiguration.CodeScanner>
   if (codeScannerConfig != null) {
     Log.i(CameraSession.TAG, "Creating CodeScanner output...")
@@ -290,7 +319,8 @@ internal suspend fun CameraSession.configureCamera(provider: ProcessCameraProvid
   checkCameraPermission()
 
   // Outputs
-  val useCases = listOfNotNull(previewOutput, photoOutput, videoOutput, frameProcessorOutput, codeScannerOutput)
+  val useCases =
+    listOfNotNull(previewOutput, photoOutput, videoOutput, frameProcessorOutput, codeScannerOutput, calibrationOutput)
   if (useCases.isEmpty()) {
     throw NoOutputsError()
   }
@@ -301,7 +331,7 @@ internal suspend fun CameraSession.configureCamera(provider: ProcessCameraProvid
 
   // Wrap input with a vendor extension if needed (see https://developer.android.com/media/camera/camera-extensions)
   val isStreamingHDR = useCases.any { !it.currentConfig.dynamicRange.isSDR }
-  val needsImageAnalysis = codeScannerOutput != null || frameProcessorOutput != null
+  val needsImageAnalysis = codeScannerOutput != null || frameProcessorOutput != null || calibrationOutput != null
   val photoOptions = configuration.photo as? CameraConfiguration.Output.Enabled<CameraConfiguration.Photo>
   val enableHdrExtension = photoOptions != null && photoOptions.config.enableHdr
   if (enableHdrExtension) {
@@ -400,6 +430,8 @@ internal fun CameraSession.configureSideProps(config: CameraConfiguration) {
   if (calibrationStarted) {
     resetAutoWhiteBalanceLock()
     autoWhiteBalanceCalibrated = false
+    autoWhiteBalanceCalibrationGains = null
+    resetAutoWhiteBalanceCalibration()
     scheduleAutoWhiteBalanceCalibration(config.autoWhiteBalanceCalibrateDelay)
   }
   if (calibrationEnded) {
@@ -441,6 +473,7 @@ internal fun CameraSession.configureSideProps(config: CameraConfiguration) {
   } else {
     resetAutoWhiteBalanceLock()
     val temperature = config.whiteBalanceTemperature
+    val manualGains = autoWhiteBalanceCalibrationGains
     if (temperature != null) {
       requestBuilder
         .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF)
@@ -448,6 +481,13 @@ internal fun CameraSession.configureSideProps(config: CameraConfiguration) {
         .setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
         .setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_TRANSFORM, IDENTITY_COLOR_TRANSFORM)
         .setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_GAINS, buildWhiteBalanceGains(temperature))
+    } else if (manualGains != null) {
+      requestBuilder
+        .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF)
+        .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, true)
+        .setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+        .setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_TRANSFORM, IDENTITY_COLOR_TRANSFORM)
+        .setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_GAINS, manualGains)
     } else {
       requestBuilder
         .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)

@@ -4,14 +4,19 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioManager
+import android.media.ImageFormat
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.params.RggbChannelVector
 import androidx.annotation.MainThread
 import androidx.camera.camera2.interop.Camera2CameraControl
 import androidx.camera.camera2.interop.CaptureRequestOptions
+import androidx.annotation.OptIn
 import androidx.camera.core.Camera
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
@@ -33,6 +38,8 @@ import com.mrousavy.camera.core.types.ShutterType
 import com.mrousavy.camera.core.utils.runOnUiThread
 import com.mrousavy.camera.frameprocessors.Frame
 import java.io.Closeable
+import kotlin.math.max
+import kotlin.math.min
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -43,6 +50,14 @@ class CameraSession(internal val context: Context, internal val callback: Callba
   companion object {
     internal const val TAG = "CameraSession"
   }
+
+  private val identityColorTransform = android.hardware.camera2.params.ColorSpaceTransform(
+    intArrayOf(
+      1, 1, 0, 1, 0, 1,
+      0, 1, 1, 1, 0, 1,
+      0, 1, 0, 1, 1, 1
+    )
+  )
 
   // Camera Configuration
   internal var configuration: CameraConfiguration? = null
@@ -55,6 +70,7 @@ class CameraSession(internal val context: Context, internal val callback: Callba
   internal var videoOutput: VideoCapture<Recorder>? = null
   internal var frameProcessorOutput: ImageAnalysis? = null
   internal var codeScannerOutput: ImageAnalysis? = null
+  internal var calibrationOutput: ImageAnalysis? = null
   internal var currentUseCases: List<UseCase> = emptyList()
 
   // Camera Outputs State
@@ -72,9 +88,11 @@ class CameraSession(internal val context: Context, internal val callback: Callba
   internal var autoWhiteBalanceLocked = false
   internal var lastAutoWhiteBalanceCalibrateOnWhite = false
   internal var autoWhiteBalanceCalibrated = false
+  internal var autoWhiteBalanceCalibrationGains: RggbChannelVector? = null
   private val autoWhiteBalanceHandler = Handler(Looper.getMainLooper())
   private var autoWhiteBalanceLockRunnable: Runnable? = null
   private var autoWhiteBalanceCalibrateRunnable: Runnable? = null
+  private val calibrationStats = WhiteBalanceCalibrationStats()
 
   // Threading
   internal val mainExecutor = ContextCompat.getMainExecutor(context)
@@ -208,6 +226,7 @@ class CameraSession(internal val context: Context, internal val callback: Callba
   internal fun resetAutoWhiteBalanceCalibration() {
     autoWhiteBalanceCalibrateRunnable?.let { autoWhiteBalanceHandler.removeCallbacks(it) }
     autoWhiteBalanceCalibrateRunnable = null
+    calibrationStats.reset()
   }
 
   internal fun scheduleAutoWhiteBalanceCalibration(delayMs: Long) {
@@ -218,9 +237,16 @@ class CameraSession(internal val context: Context, internal val callback: Callba
       if (isDestroyed) return@Runnable
       val config = configuration ?: return@Runnable
       if (!config.autoWhiteBalanceCalibrateOnWhite || !config.isActive) return@Runnable
+      val gains = calibrationStats.computeGains()
+      if (gains != null) {
+        autoWhiteBalanceCalibrationGains = gains
+        applyManualWhiteBalanceGains(gains)
+      } else {
+        autoWhiteBalanceCalibrationGains = null
+        applyAutoWhiteBalanceLock(true)
+      }
       autoWhiteBalanceLocked = true
       applyAutoExposureLock(true)
-      applyAutoWhiteBalanceLock(true)
       autoWhiteBalanceCalibrated = true
       callback.onAutoWhiteBalanceCalibrated()
     }
@@ -253,6 +279,18 @@ class CameraSession(internal val context: Context, internal val callback: Callba
     camera2Control.setCaptureRequestOptions(requestBuilder.build())
   }
 
+  internal fun applyManualWhiteBalanceGains(gains: RggbChannelVector) {
+    val camera = camera ?: return
+    val camera2Control = Camera2CameraControl.from(camera.cameraControl)
+    val requestBuilder = CaptureRequestOptions.Builder()
+      .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF)
+      .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, true)
+      .setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+      .setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_TRANSFORM, identityColorTransform)
+      .setCaptureRequestOption(CaptureRequest.COLOR_CORRECTION_GAINS, gains)
+    camera2Control.setCaptureRequestOptions(requestBuilder.build())
+  }
+
   internal fun applyAutoExposureLock(lock: Boolean) {
     val camera = camera ?: return
     val camera2Control = Camera2CameraControl.from(camera.cameraControl)
@@ -260,6 +298,136 @@ class CameraSession(internal val context: Context, internal val callback: Callba
       .setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
       .setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK, lock)
     camera2Control.setCaptureRequestOptions(requestBuilder.build())
+  }
+
+  @OptIn(ExperimentalGetImage::class)
+  internal fun handleCalibrationFrame(imageProxy: ImageProxy) {
+    try {
+      val config = configuration ?: return
+      if (!config.autoWhiteBalanceCalibrateOnWhite) return
+      if (autoWhiteBalanceCalibrated) return
+      if (imageProxy.format != ImageFormat.YUV_420_888) return
+
+      val now = SystemClock.elapsedRealtime()
+      if (!calibrationStats.shouldSample(now)) return
+
+      val image = imageProxy.image ?: return
+      val width = image.width
+      val height = image.height
+      if (width <= 0 || height <= 0) return
+
+      val radius = calibrationStats.resolveSampleRadius(width, height)
+      val centerX = width / 2
+      val centerY = height / 2
+      val startX = max(0, centerX - radius)
+      val endX = min(width - 1, centerX + radius)
+      val startY = max(0, centerY - radius)
+      val endY = min(height - 1, centerY + radius)
+
+      val yPlane = image.planes[0]
+      val uPlane = image.planes[1]
+      val vPlane = image.planes[2]
+      val yBuffer = yPlane.buffer
+      val uBuffer = uPlane.buffer
+      val vBuffer = vPlane.buffer
+      val yRowStride = yPlane.rowStride
+      val yPixelStride = yPlane.pixelStride
+      val uRowStride = uPlane.rowStride
+      val uPixelStride = uPlane.pixelStride
+      val vRowStride = vPlane.rowStride
+      val vPixelStride = vPlane.pixelStride
+
+      var sumR = 0.0
+      var sumG = 0.0
+      var sumB = 0.0
+      var count = 0
+
+      var y = startY
+      while (y <= endY) {
+        val yRow = yRowStride * y
+        val uvRow = uRowStride * (y / 2)
+        val vvRow = vRowStride * (y / 2)
+        var x = startX
+        while (x <= endX) {
+          val yIndex = yRow + x * yPixelStride
+          val uvIndex = uvRow + (x / 2) * uPixelStride
+          val vvIndex = vvRow + (x / 2) * vPixelStride
+          val yValue = yBuffer.get(yIndex).toInt() and 0xFF
+          val uValue = uBuffer.get(uvIndex).toInt() and 0xFF
+          val vValue = vBuffer.get(vvIndex).toInt() and 0xFF
+          val rgb = yuvToRgb(yValue, uValue, vValue)
+          sumR += rgb[0]
+          sumG += rgb[1]
+          sumB += rgb[2]
+          count += 1
+          x += 1
+        }
+        y += 1
+      }
+
+      if (count > 0) {
+        calibrationStats.addSample(sumR, sumG, sumB, count)
+      }
+    } finally {
+      imageProxy.close()
+    }
+  }
+
+  private fun yuvToRgb(y: Int, u: Int, v: Int): IntArray {
+    val c = y - 16
+    val d = u - 128
+    val e = v - 128
+    val r = (298 * c + 409 * e + 128) shr 8
+    val g = (298 * c - 100 * d - 208 * e + 128) shr 8
+    val b = (298 * c + 516 * d + 128) shr 8
+    return intArrayOf(r.coerceIn(0, 255), g.coerceIn(0, 255), b.coerceIn(0, 255))
+  }
+
+  private class WhiteBalanceCalibrationStats {
+    private var sumR = 0.0
+    private var sumG = 0.0
+    private var sumB = 0.0
+    private var count = 0
+    private var lastSampleMs = 0L
+
+    fun reset() {
+      sumR = 0.0
+      sumG = 0.0
+      sumB = 0.0
+      count = 0
+      lastSampleMs = 0L
+    }
+
+    fun shouldSample(nowMs: Long, intervalMs: Long = 50L): Boolean {
+      if (lastSampleMs != 0L && nowMs - lastSampleMs < intervalMs) return false
+      lastSampleMs = nowMs
+      return true
+    }
+
+    fun resolveSampleRadius(width: Int, height: Int): Int {
+      val base = min(width, height) / 40
+      return max(2, min(10, base))
+    }
+
+    fun addSample(r: Double, g: Double, b: Double, sampleCount: Int) {
+      sumR += r
+      sumG += g
+      sumB += b
+      count += sampleCount
+    }
+
+    fun computeGains(): RggbChannelVector? {
+      if (count <= 0) return null
+      val avgR = sumR / count
+      val avgG = sumG / count
+      val avgB = sumB / count
+      val safeR = max(avgR, 1.0)
+      val safeG = max(avgG, 1.0)
+      val safeB = max(avgB, 1.0)
+      val rGain = (safeG / safeR).coerceIn(0.1, 8.0)
+      val bGain = (safeG / safeB).coerceIn(0.1, 8.0)
+      return RggbChannelVector(rGain.toFloat(), 1f, 1f, bGain.toFloat())
+    }
   }
 
   override fun onOutputOrientationChanged(outputOrientation: Orientation) {
