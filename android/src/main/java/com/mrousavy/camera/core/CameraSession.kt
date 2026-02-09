@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.graphics.ImageFormat
-import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -310,12 +309,14 @@ class CameraSession(internal val context: Context, internal val callback: Callba
       val config = configuration ?: return
       if (!config.autoWhiteBalanceCalibrateOnWhite) return
       if (autoWhiteBalanceCalibrated) return
+      if (imageProxy.format != ImageFormat.YUV_420_888) return
 
       val now = SystemClock.elapsedRealtime()
       if (!calibrationStats.shouldSample(now)) return
 
-      val width = imageProxy.width
-      val height = imageProxy.height
+      val image = imageProxy.image ?: return
+      val width = image.width
+      val height = image.height
       if (width <= 0 || height <= 0) return
 
       val radius = calibrationStats.resolveSampleRadius(width, height)
@@ -326,83 +327,52 @@ class CameraSession(internal val context: Context, internal val callback: Callba
       val startY = max(0, centerY - radius)
       val endY = min(height - 1, centerY + radius)
 
+      val yPlane = image.planes[0]
+      val uPlane = image.planes[1]
+      val vPlane = image.planes[2]
+      val yBuffer = yPlane.buffer
+      val uBuffer = uPlane.buffer
+      val vBuffer = vPlane.buffer
+      val yRowStride = yPlane.rowStride
+      val yPixelStride = yPlane.pixelStride
+      val uRowStride = uPlane.rowStride
+      val uPixelStride = uPlane.pixelStride
+      val vRowStride = vPlane.rowStride
+      val vPixelStride = vPlane.pixelStride
+
       var sumR = 0.0
       var sumG = 0.0
       var sumB = 0.0
-      var sumLuma = 0.0
+      var sumLuma = 0
       var count = 0
 
-      when (imageProxy.format) {
-        ImageFormat.YUV_420_888 -> {
-          val image = imageProxy.image ?: return
-          val yPlane = image.planes[0]
-          val uPlane = image.planes[1]
-          val vPlane = image.planes[2]
-          val yBuffer = yPlane.buffer
-          val uBuffer = uPlane.buffer
-          val vBuffer = vPlane.buffer
-          val yRowStride = yPlane.rowStride
-          val yPixelStride = yPlane.pixelStride
-          val uRowStride = uPlane.rowStride
-          val uPixelStride = uPlane.pixelStride
-          val vRowStride = vPlane.rowStride
-          val vPixelStride = vPlane.pixelStride
-
-          var y = startY
-          while (y <= endY) {
-            val yRow = yRowStride * y
-            val uvRow = uRowStride * (y / 2)
-            val vvRow = vRowStride * (y / 2)
-            var x = startX
-            while (x <= endX) {
-              val yIndex = yRow + x * yPixelStride
-              val uvIndex = uvRow + (x / 2) * uPixelStride
-              val vvIndex = vvRow + (x / 2) * vPixelStride
-              val yValue = yBuffer.get(yIndex).toInt() and 0xFF
-              val uValue = uBuffer.get(uvIndex).toInt() and 0xFF
-              val vValue = vBuffer.get(vvIndex).toInt() and 0xFF
-              val rgb = yuvToRgb(yValue, uValue, vValue)
-              sumR += rgb[0]
-              sumG += rgb[1]
-              sumB += rgb[2]
-              sumLuma += yValue.toDouble()
-              count += 1
-              x += 1
-            }
-            y += 1
-          }
+      var y = startY
+      while (y <= endY) {
+        val yRow = yRowStride * y
+        val uvRow = uRowStride * (y / 2)
+        val vvRow = vRowStride * (y / 2)
+        var x = startX
+        while (x <= endX) {
+          val yIndex = yRow + x * yPixelStride
+          val uvIndex = uvRow + (x / 2) * uPixelStride
+          val vvIndex = vvRow + (x / 2) * vPixelStride
+          val yValue = yBuffer.get(yIndex).toInt() and 0xFF
+          val uValue = uBuffer.get(uvIndex).toInt() and 0xFF
+          val vValue = vBuffer.get(vvIndex).toInt() and 0xFF
+          val rgb = yuvToRgb(yValue, uValue, vValue)
+          sumR += rgb[0]
+          sumG += rgb[1]
+          sumB += rgb[2]
+          sumLuma += yValue
+          count += 1
+          x += 1
         }
-        PixelFormat.RGBA_8888 -> {
-          val plane = imageProxy.planes[0]
-          val buffer = plane.buffer
-          val rowStride = plane.rowStride
-          val pixelStride = plane.pixelStride
-
-          var y = startY
-          while (y <= endY) {
-            val row = y * rowStride
-            var x = startX
-            while (x <= endX) {
-              val idx = row + x * pixelStride
-              val r = buffer.get(idx).toInt() and 0xFF
-              val g = buffer.get(idx + 1).toInt() and 0xFF
-              val b = buffer.get(idx + 2).toInt() and 0xFF
-              sumR += r
-              sumG += g
-              sumB += b
-              sumLuma += 0.2126 * r + 0.7152 * g + 0.0722 * b
-              count += 1
-              x += 1
-            }
-            y += 1
-          }
-        }
-        else -> return
+        y += 1
       }
 
       if (count > 0) {
         calibrationStats.addSample(sumR, sumG, sumB, count)
-        val avgLuma = sumLuma / count.toDouble()
+        val avgLuma = sumLuma.toDouble() / count.toDouble()
         adjustExposureForCalibration(avgLuma)
       }
     } finally {

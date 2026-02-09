@@ -275,7 +275,7 @@ internal fun CameraSession.configureOutputs(configuration: CameraConfiguration) 
     Log.i(CameraSession.TAG, "Creating White Balance calibration output...")
     val analyzer = ImageAnalysis.Builder().also { analysis ->
       analysis.setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-      analysis.setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+      analysis.setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
       if (fpsRange != null) {
         assertFormatRequirement("fps", format, InvalidFpsError(fpsRange.upper)) {
           fpsRange.lower >= it.minFps &&
