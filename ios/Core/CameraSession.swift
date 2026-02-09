@@ -380,6 +380,7 @@ final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     var sumG: Double = 0
     var sumB: Double = 0
     var count = 0
+    var sumLuma: Double = 0
 
     if format == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange ||
         format == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange {
@@ -408,6 +409,7 @@ final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
           sumR += rgb.r
           sumG += rgb.g
           sumB += rgb.b
+          sumLuma += Double(yValue)
           count += 1
           x += 1
         }
@@ -428,9 +430,11 @@ final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
           let b = Double(base[idx])
           let g = Double(base[idx + 1])
           let r = Double(base[idx + 2])
+          let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b
           sumR += r
           sumG += g
           sumB += b
+          sumLuma += luma
           count += 1
           x += 1
         }
@@ -442,6 +446,8 @@ final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
 
     if count > 0 {
       calibrationStats.addSample(sumR: sumR, sumG: sumG, sumB: sumB, count: count)
+      let avgLuma = sumLuma / Double(count)
+      adjustExposureForCalibration(avgLuma: avgLuma)
     }
   }
 
@@ -452,6 +458,46 @@ final class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
   internal func computeCalibrationGains(maxGain: Float) -> AVCaptureDevice.WhiteBalanceGains? {
     return calibrationStats.computeGains(maxGain: maxGain)
   }
+
+  private func adjustExposureForCalibration(avgLuma: Double) {
+    guard calibrationStats.shouldAdjustExposure(now: CACurrentMediaTime()) else {
+      return
+    }
+    let targetLuma = 230.0
+    let tolerance = 8.0
+    var delta: Float = 0
+    if avgLuma < targetLuma - tolerance {
+      delta = 0.3
+    } else if avgLuma > targetLuma + tolerance {
+      delta = -0.3
+    } else {
+      return
+    }
+
+    CameraQueues.cameraQueue.async { [weak self] in
+      guard let self else { return }
+      guard let config = self.configuration,
+            config.autoWhiteBalanceCalibrateOnWhite,
+            !self.autoWhiteBalanceCalibrated,
+            let device = self.videoDeviceInput?.device else {
+        return
+      }
+      let minBias = device.minExposureTargetBias
+      let maxBias = device.maxExposureTargetBias
+      let current = device.exposureTargetBias
+      let next = min(max(current + delta, minBias), maxBias)
+      if next == current {
+        return
+      }
+      do {
+        try device.lockForConfiguration()
+        defer { device.unlockForConfiguration() }
+        device.setExposureTargetBias(next)
+      } catch {
+        // ignore exposure bias adjustment errors
+      }
+    }
+  }
 }
 
 private struct WhiteBalanceCalibrationStats {
@@ -460,6 +506,7 @@ private struct WhiteBalanceCalibrationStats {
   private var sumB: Double = 0
   private var count: Int = 0
   private var lastSampleTime: CFTimeInterval = 0
+  private var lastExposureAdjustTime: CFTimeInterval = 0
 
   mutating func reset() {
     sumR = 0
@@ -467,6 +514,7 @@ private struct WhiteBalanceCalibrationStats {
     sumB = 0
     count = 0
     lastSampleTime = 0
+    lastExposureAdjustTime = 0
   }
 
   mutating func shouldSample(now: CFTimeInterval, interval: CFTimeInterval = 0.05) -> Bool {
@@ -474,6 +522,14 @@ private struct WhiteBalanceCalibrationStats {
       return false
     }
     lastSampleTime = now
+    return true
+  }
+
+  mutating func shouldAdjustExposure(now: CFTimeInterval, interval: CFTimeInterval = 0.12) -> Bool {
+    if lastExposureAdjustTime != 0, now - lastExposureAdjustTime < interval {
+      return false
+    }
+    lastExposureAdjustTime = now
     return true
   }
 
