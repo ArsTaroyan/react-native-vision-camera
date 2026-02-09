@@ -89,7 +89,6 @@ class CameraSession(internal val context: Context, internal val callback: Callba
   internal var lastAutoWhiteBalanceCalibrateOnWhite = false
   internal var autoWhiteBalanceCalibrated = false
   internal var autoWhiteBalanceCalibrationGains: RggbChannelVector? = null
-  private var lastExposureAdjustMs: Long = 0
   private val autoWhiteBalanceHandler = Handler(Looper.getMainLooper())
   private var autoWhiteBalanceLockRunnable: Runnable? = null
   private var autoWhiteBalanceCalibrateRunnable: Runnable? = null
@@ -228,7 +227,6 @@ class CameraSession(internal val context: Context, internal val callback: Callba
     autoWhiteBalanceCalibrateRunnable?.let { autoWhiteBalanceHandler.removeCallbacks(it) }
     autoWhiteBalanceCalibrateRunnable = null
     calibrationStats.reset()
-    lastExposureAdjustMs = 0
   }
 
   internal fun scheduleAutoWhiteBalanceCalibration(delayMs: Long) {
@@ -342,7 +340,6 @@ class CameraSession(internal val context: Context, internal val callback: Callba
       var sumR = 0.0
       var sumG = 0.0
       var sumB = 0.0
-      var sumLuma = 0
       var count = 0
 
       var y = startY
@@ -362,7 +359,6 @@ class CameraSession(internal val context: Context, internal val callback: Callba
           sumR += rgb[0]
           sumG += rgb[1]
           sumB += rgb[2]
-          sumLuma += yValue
           count += 1
           x += 1
         }
@@ -371,34 +367,9 @@ class CameraSession(internal val context: Context, internal val callback: Callba
 
       if (count > 0) {
         calibrationStats.addSample(sumR, sumG, sumB, count)
-        val avgLuma = sumLuma.toDouble() / count.toDouble()
-        adjustExposureForCalibration(avgLuma)
       }
     } finally {
       imageProxy.close()
-    }
-  }
-
-  private fun adjustExposureForCalibration(avgLuma: Double) {
-    val camera = camera ?: return
-    val now = SystemClock.elapsedRealtime()
-    if (now - lastExposureAdjustMs < 120L) return
-    lastExposureAdjustMs = now
-
-    val range = camera.cameraInfo.exposureState.exposureCompensationRange
-    if (range.lower == 0 && range.upper == 0) return
-    val current = camera.cameraInfo.exposureState.exposureCompensationIndex
-    val targetLuma = 230.0
-    val tolerance = 8.0
-    var next = current
-    if (avgLuma < targetLuma - tolerance) {
-      next = current + 1
-    } else if (avgLuma > targetLuma + tolerance) {
-      next = current - 1
-    }
-    next = next.coerceIn(range.lower, range.upper)
-    if (next != current) {
-      camera.cameraControl.setExposureCompensationIndex(next)
     }
   }
 
