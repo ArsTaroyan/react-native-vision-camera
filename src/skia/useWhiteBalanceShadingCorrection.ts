@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import { Platform } from 'react-native'
-import type { SkImage } from '../types/SkiaTypes'
+import type { SkImage } from '@shopify/react-native-skia'
 
-import type { DrawableFrameProcessor, ReadonlyFrameProcessor } from '../types/CameraProps'
+import type { DrawableFrameProcessor } from '../types/CameraProps'
 import type { Frame } from '../types/Frame'
 import { VisionCameraProxy } from '../frame-processors/VisionCameraProxy'
 import { SkiaProxy } from '../dependencies/SkiaProxy'
@@ -54,7 +54,6 @@ export interface WhiteBalanceShadingCorrectionOptions {
   sampleIntervalMs?: number
   /**
    * Optional callback that receives the corrected sample color (post gain).
-   * On Android, sampling is handled by native post-processing instead.
    */
   onSample?: (rgb: WhiteBalanceSample) => void
   /**
@@ -79,10 +78,8 @@ export interface WhiteBalanceSample {
 export interface WhiteBalanceShadingCorrectionResult {
   /**
    * Skia Drawable frame processor that applies the calibration map.
-   *
-   * On Android, native post-processing is used and this might be undefined.
    */
-  frameProcessor?: ReadonlyFrameProcessor | DrawableFrameProcessor
+  frameProcessor: DrawableFrameProcessor
   /**
    * Attach this to `onAutoWhiteBalanceCalibrated`.
    * It will trigger a one-shot calibration capture.
@@ -324,7 +321,7 @@ function sampleCorrectedColor(
   }
 }
 
-function useWhiteBalanceShadingCorrectionIOS(
+export function useWhiteBalanceShadingCorrection(
   options: WhiteBalanceShadingCorrectionOptions = {},
 ): WhiteBalanceShadingCorrectionResult {
   const mapSize = options.mapSize ?? { width: 32, height: 24 }
@@ -507,21 +504,4 @@ function useWhiteBalanceShadingCorrectionIOS(
   )
 
   return { frameProcessor, onAutoWhiteBalanceCalibrated, reset }
-}
-
-function useWhiteBalanceShadingCorrectionAndroid(
-  _options: WhiteBalanceShadingCorrectionOptions = {},
-): WhiteBalanceShadingCorrectionResult {
-  const onAutoWhiteBalanceCalibrated = useCallback(() => undefined, [])
-  const reset = useCallback(() => undefined, [])
-  return { frameProcessor: undefined, onAutoWhiteBalanceCalibrated, reset }
-}
-
-const useWhiteBalanceShadingCorrectionImpl =
-  Platform.OS === 'android' ? useWhiteBalanceShadingCorrectionAndroid : useWhiteBalanceShadingCorrectionIOS
-
-export function useWhiteBalanceShadingCorrection(
-  options: WhiteBalanceShadingCorrectionOptions = {},
-): WhiteBalanceShadingCorrectionResult {
-  return useWhiteBalanceShadingCorrectionImpl(options)
 }

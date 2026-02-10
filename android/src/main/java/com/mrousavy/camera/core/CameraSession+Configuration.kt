@@ -28,7 +28,6 @@ import com.mrousavy.camera.core.types.CameraDeviceFormat
 import com.mrousavy.camera.core.types.Torch
 import com.mrousavy.camera.core.types.VideoStabilizationMode
 import com.mrousavy.camera.core.utils.CamcorderProfileUtils
-import com.mrousavy.camera.core.preview.ProcessedPreviewPipeline
 import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.pow
@@ -271,52 +270,7 @@ internal fun CameraSession.configureOutputs(configuration: CameraConfiguration) 
     frameProcessorOutput = null
   }
 
-  // 5. Processed Preview
-  val processedPreviewConfig =
-    configuration.processedPreview as? CameraConfiguration.Output.Enabled<CameraConfiguration.ProcessedPreview>
-  if (processedPreviewConfig != null) {
-    Log.i(CameraSession.TAG, "Creating processed preview output...")
-    val analyzer = ImageAnalysis.Builder().also { analysis ->
-      analysis.setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-      analysis.setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
-      if (fpsRange != null) {
-        assertFormatRequirement("fps", format, InvalidFpsError(fpsRange.upper)) {
-          fpsRange.lower >= it.minFps &&
-            fpsRange.upper <= it.maxFps
-        }
-        analysis.setTargetFrameRate(fpsRange)
-      }
-      if (format != null) {
-        Log.i(CameraSession.TAG, "Processed preview size: ${format.videoSize}")
-        val resolutionSelector = ResolutionSelector.Builder()
-          .forSize(format.videoSize)
-          .setAllowedResolutionMode(ResolutionSelector.PREFER_CAPTURE_RATE_OVER_HIGHER_RESOLUTION)
-          .build()
-        analysis.setResolutionSelector(resolutionSelector)
-      }
-    }.build()
-    val pipeline = ProcessedPreviewPipeline(
-      processedPreviewConfig.config.view,
-      processedPreviewConfig.config.isMirrored,
-      object : ProcessedPreviewPipeline.Callback {
-        override fun onWhiteBalanceSampled(r: Int, g: Int, b: Int) {
-          callback.onWhiteBalanceSampled(r, g, b)
-        }
-
-        override fun onCalibrationApplied() {
-          callback.onProcessedPreviewCalibrationApplied()
-        }
-      }
-    )
-    analyzer.setAnalyzer(CameraQueues.videoQueue.executor, pipeline)
-    processedPreviewOutput = analyzer
-    processedPreviewPipeline = pipeline
-  } else {
-    processedPreviewOutput = null
-    processedPreviewPipeline = null
-  }
-
-  // 6. Code Scanner
+  // 5. Code Scanner
   val codeScannerConfig = configuration.codeScanner as? CameraConfiguration.Output.Enabled<CameraConfiguration.CodeScanner>
   if (codeScannerConfig != null) {
     Log.i(CameraSession.TAG, "Creating CodeScanner output...")
@@ -336,7 +290,7 @@ internal suspend fun CameraSession.configureCamera(provider: ProcessCameraProvid
   checkCameraPermission()
 
   // Outputs
-  val useCases = listOfNotNull(previewOutput, photoOutput, videoOutput, frameProcessorOutput, processedPreviewOutput, codeScannerOutput)
+  val useCases = listOfNotNull(previewOutput, photoOutput, videoOutput, frameProcessorOutput, codeScannerOutput)
   if (useCases.isEmpty()) {
     throw NoOutputsError()
   }
@@ -347,7 +301,7 @@ internal suspend fun CameraSession.configureCamera(provider: ProcessCameraProvid
 
   // Wrap input with a vendor extension if needed (see https://developer.android.com/media/camera/camera-extensions)
   val isStreamingHDR = useCases.any { !it.currentConfig.dynamicRange.isSDR }
-  val needsImageAnalysis = codeScannerOutput != null || frameProcessorOutput != null || processedPreviewOutput != null
+  val needsImageAnalysis = codeScannerOutput != null || frameProcessorOutput != null
   val photoOptions = configuration.photo as? CameraConfiguration.Output.Enabled<CameraConfiguration.Photo>
   val enableHdrExtension = photoOptions != null && photoOptions.config.enableHdr
   if (enableHdrExtension) {

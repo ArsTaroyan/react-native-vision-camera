@@ -134,16 +134,6 @@ fun CameraView.invokeOnAutoWhiteBalanceCalibrated() {
   this.sendEvent(event)
 }
 
-fun CameraView.invokeOnWhiteBalanceSampled(r: Int, g: Int, b: Int) {
-  val surfaceId = UIManagerHelper.getSurfaceId(this)
-  val data = Arguments.createMap()
-  data.putInt("r", r)
-  data.putInt("g", g)
-  data.putInt("b", b)
-  val event = CameraWhiteBalanceSampledEvent(surfaceId, id, data)
-  this.sendEvent(event)
-}
-
 fun CameraView.invokeOnCodeScanned(barcodes: List<Barcode>, scannerFrame: CodeScannerFrame) {
   val codes = Arguments.createArray()
   barcodes.forEach { barcode ->

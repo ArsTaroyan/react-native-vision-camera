@@ -4,7 +4,7 @@ import type { CameraRuntimeError } from '../CameraError'
 import type { CodeScanner } from './CodeScanner'
 import type { Frame } from './Frame'
 import type { ISharedValue } from 'react-native-worklets-core'
-import type { SkImage } from './SkiaTypes'
+import type { SkImage } from '@shopify/react-native-skia'
 import type { OutputOrientation } from './OutputOrientation'
 import type { Orientation } from './Orientation'
 
@@ -414,11 +414,6 @@ export interface CameraProps extends ViewProps {
    * Called after auto white balance calibration has been locked.
    */
   onAutoWhiteBalanceCalibrated?: (event: { temperature?: number; tint?: number }) => void
-  /**
-   * Called with the corrected center sample color (post-calibration).
-   * This is primarily used by native post-processing on Android.
-   */
-  onWhiteBalanceSampled?: (event: { r: number; g: number; b: number }) => void
   /**
    * Called just before a photo or snapshot is captured.
    *

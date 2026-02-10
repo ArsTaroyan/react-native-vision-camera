@@ -1,7 +1,7 @@
-import type { SkiaProxyModule } from '../types/SkiaTypes'
+import type * as Skia from '@shopify/react-native-skia'
 import { createModuleProxy, OptionalDependencyNotInstalledError } from './ModuleProxy'
 
-type TSkia = SkiaProxyModule
+type TSkia = typeof Skia
 
 /**
  * A proxy object that lazy-imports @shopify/react-native-skia as soon as the

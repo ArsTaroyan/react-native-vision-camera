@@ -9,7 +9,6 @@ import com.mrousavy.camera.core.types.PixelFormat
 import com.mrousavy.camera.core.types.QualityBalance
 import com.mrousavy.camera.core.types.Torch
 import com.mrousavy.camera.core.types.VideoStabilizationMode
-import com.mrousavy.camera.core.preview.ProcessedPreviewView
 
 data class CameraConfiguration(
   // Input
@@ -20,7 +19,6 @@ data class CameraConfiguration(
   var photo: Output<Photo> = Output.Disabled.create(),
   var video: Output<Video> = Output.Disabled.create(),
   var frameProcessor: Output<FrameProcessor> = Output.Disabled.create(),
-  var processedPreview: Output<ProcessedPreview> = Output.Disabled.create(),
   var codeScanner: Output<CodeScanner> = Output.Disabled.create(),
   var minFps: Int? = null,
   var maxFps: Int? = null,
@@ -59,7 +57,6 @@ data class CameraConfiguration(
   data class Photo(val isMirrored: Boolean, val enableHdr: Boolean, val photoQualityBalance: QualityBalance)
   data class Video(val isMirrored: Boolean, val enableHdr: Boolean, val bitRateOverride: Double?, val bitRateMultiplier: Double?)
   data class FrameProcessor(val isMirrored: Boolean, val pixelFormat: PixelFormat)
-  data class ProcessedPreview(val view: ProcessedPreviewView, val isMirrored: Boolean)
   data class Audio(val nothing: Unit)
   data class Preview(val surfaceProvider: SurfaceProvider)
 
@@ -137,7 +134,6 @@ data class CameraConfiguration(
         left.enableLowLightBoost != right.enableLowLightBoost ||
         left.videoStabilizationMode != right.videoStabilizationMode ||
         left.frameProcessor != right.frameProcessor ||
-        left.processedPreview != right.processedPreview ||
         left.codeScanner != right.codeScanner ||
         left.preview != right.preview ||
         left.format != right.format ||

@@ -22,7 +22,6 @@ import com.mrousavy.camera.core.types.ResizeMode
 import com.mrousavy.camera.core.types.ShutterType
 import com.mrousavy.camera.core.types.Torch
 import com.mrousavy.camera.core.types.VideoStabilizationMode
-import com.mrousavy.camera.core.preview.ProcessedPreviewView
 import com.mrousavy.camera.frameprocessors.Frame
 import com.mrousavy.camera.frameprocessors.FrameProcessor
 import com.mrousavy.camera.react.extensions.installHierarchyFitter
@@ -112,10 +111,6 @@ class CameraView(context: Context) :
     set(value) {
       val was = field
       field = value
-      if (!was && value) {
-        hasProcessedPreviewCalibration = false
-        cameraSession.processedPreviewPipeline?.resetCalibration()
-      }
       if (was && !value) {
         forceAutoExposureOff = true
         forceAutoWhiteBalanceOff = true
@@ -152,10 +147,8 @@ class CameraView(context: Context) :
   internal val cameraSession: CameraSession
   internal var frameProcessor: FrameProcessor? = null
   internal var previewView: PreviewView? = null
-  internal var processedPreviewView: ProcessedPreviewView? = null
   private var currentConfigureCall: Long = System.currentTimeMillis()
   private val fpsSampleCollector = FpsSampleCollector(this)
-  private var hasProcessedPreviewCalibration = false
 
   init {
     clipToOutline = true
@@ -191,7 +184,6 @@ class CameraView(context: Context) :
     Log.i(TAG, "Updating CameraSession...")
     val now = System.currentTimeMillis()
     currentConfigureCall = now
-    updateProcessedPreview()
 
     mainCoroutineScope.launch {
       cameraSession.configure { config ->
@@ -235,16 +227,6 @@ class CameraView(context: Context) :
           config.frameProcessor = CameraConfiguration.Output.Enabled.create(CameraConfiguration.FrameProcessor(isMirrored, pixelFormat))
         } else {
           config.frameProcessor = CameraConfiguration.Output.Disabled.create()
-        }
-
-        // Processed Preview
-        val processedView = processedPreviewView
-        if (processedView != null) {
-          config.processedPreview = CameraConfiguration.Output.Enabled.create(
-            CameraConfiguration.ProcessedPreview(processedView, isMirrored)
-          )
-        } else {
-          config.processedPreview = CameraConfiguration.Output.Disabled.create()
         }
 
         // Audio
@@ -334,34 +316,8 @@ class CameraView(context: Context) :
         // Update scale type from React
         it.scaleType = resizeMode.toScaleType()
       }
-      updateProcessedPreview()
       update()
     }
-  }
-
-  private fun shouldUseProcessedPreview(): Boolean {
-    return preview && (autoWhiteBalanceCalibrateOnWhite || hasProcessedPreviewCalibration)
-  }
-
-  private fun updateProcessedPreview() {
-    val shouldUse = shouldUseProcessedPreview()
-    if (shouldUse && processedPreviewView == null) {
-      processedPreviewView = ProcessedPreviewView(context).also {
-        it.installHierarchyFitter()
-        it.layoutParams = LayoutParams(
-          LayoutParams.MATCH_PARENT,
-          LayoutParams.MATCH_PARENT,
-          Gravity.CENTER
-        )
-        addView(it)
-      }
-    } else if (!shouldUse && processedPreviewView != null) {
-      removeView(processedPreviewView)
-      processedPreviewView = null
-    }
-
-    processedPreviewView?.resizeMode = resizeMode
-    previewView?.visibility = if (shouldUse) INVISIBLE else VISIBLE
   }
 
   private fun createPreviewView(): PreviewView =
@@ -441,17 +397,6 @@ class CameraView(context: Context) :
       update()
     }
     invokeOnAutoWhiteBalanceCalibrated()
-  }
-
-  override fun onProcessedPreviewCalibrationApplied() {
-    post {
-      hasProcessedPreviewCalibration = true
-      updateProcessedPreview()
-    }
-  }
-
-  override fun onWhiteBalanceSampled(r: Int, g: Int, b: Int) {
-    post { invokeOnWhiteBalanceSampled(r, g, b) }
   }
 }
 

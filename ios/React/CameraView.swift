@@ -84,7 +84,6 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
   @objc var onPreviewStartedEvent: RCTDirectEventBlock?
   @objc var onPreviewStoppedEvent: RCTDirectEventBlock?
   @objc var onAutoWhiteBalanceCalibratedEvent: RCTDirectEventBlock?
-  @objc var onWhiteBalanceSampledEvent: RCTDirectEventBlock?
   @objc var onShutterEvent: RCTDirectEventBlock?
   @objc var onPreviewOrientationChangedEvent: RCTDirectEventBlock?
   @objc var onOutputOrientationChangedEvent: RCTDirectEventBlock?
