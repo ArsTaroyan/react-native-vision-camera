@@ -347,6 +347,7 @@ class CameraView(context: Context) :
     val shouldUse = shouldUseProcessedPreview()
     if (shouldUse && processedPreviewView == null) {
       processedPreviewView = ProcessedPreviewView(context).also {
+        it.installHierarchyFitter()
         it.layoutParams = LayoutParams(
           LayoutParams.MATCH_PARENT,
           LayoutParams.MATCH_PARENT,
