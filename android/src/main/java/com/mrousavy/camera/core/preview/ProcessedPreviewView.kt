@@ -20,7 +20,7 @@ class ProcessedPreviewView(context: Context) : SurfaceView(context) {
     setZOrderMediaOverlay(true)
   }
 
-  fun renderFrame(bitmap: android.graphics.Bitmap, mirrored: Boolean, rotationDegrees: Int) {
+  fun renderFrame(bitmap: android.graphics.Bitmap, mirrored: Boolean) {
     val holder = holder
     if (!holder.surface.isValid) return
     val canvas = holder.lockCanvas() ?: return
@@ -30,28 +30,20 @@ class ProcessedPreviewView(context: Context) : SurfaceView(context) {
       val viewHeight = height.toFloat()
       if (viewWidth <= 0f || viewHeight <= 0f) return
 
-      val normalizedRotation = ((rotationDegrees % 360) + 360) % 360
       val bmpWidth = bitmap.width.toFloat()
       val bmpHeight = bitmap.height.toFloat()
-      val renderWidth = if (normalizedRotation == 90 || normalizedRotation == 270) bmpHeight else bmpWidth
-      val renderHeight = if (normalizedRotation == 90 || normalizedRotation == 270) bmpWidth else bmpHeight
       val scale = if (resizeMode == ResizeMode.COVER) {
-        max(viewWidth / renderWidth, viewHeight / renderHeight)
+        max(viewWidth / bmpWidth, viewHeight / bmpHeight)
       } else {
-        min(viewWidth / renderWidth, viewHeight / renderHeight)
+        min(viewWidth / bmpWidth, viewHeight / bmpHeight)
       }
-      val scaledWidth = renderWidth * scale
-      val scaledHeight = renderHeight * scale
+      val scaledWidth = bmpWidth * scale
+      val scaledHeight = bmpHeight * scale
       val left = (viewWidth - scaledWidth) / 2f
       val top = (viewHeight - scaledHeight) / 2f
       val dst = RectF(left, top, left + scaledWidth, top + scaledHeight)
 
       canvas.save()
-      if (normalizedRotation != 0) {
-        canvas.translate(viewWidth / 2f, viewHeight / 2f)
-        canvas.rotate(normalizedRotation.toFloat())
-        canvas.translate(-viewWidth / 2f, -viewHeight / 2f)
-      }
       if (mirrored) {
         canvas.translate(viewWidth, 0f)
         canvas.scale(-1f, 1f)

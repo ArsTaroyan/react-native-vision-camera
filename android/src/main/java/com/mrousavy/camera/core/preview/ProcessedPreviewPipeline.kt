@@ -124,8 +124,7 @@ class ProcessedPreviewPipeline(
       }
 
       bmp.setPixels(pixels, 0, width, 0, 0, width, height)
-      val rotation = imageProxy.imageInfo.rotationDegrees
-      view.renderFrame(bmp, isMirrored, rotation)
+      view.renderFrame(bmp, isMirrored)
 
       if (shouldSample && sampleCount > 0) {
         lastSampleTime = now
