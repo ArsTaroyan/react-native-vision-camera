@@ -43,6 +43,7 @@ class CameraViewManager : ViewGroupManager<CameraView>() {
       .put(CameraPreviewOrientationChangedEvent.EVENT_NAME, MapBuilder.of("registrationName", "onPreviewOrientationChanged"))
       .put(AverageFpsChangedEvent.EVENT_NAME, MapBuilder.of("registrationName", "onAverageFpsChanged"))
       .put(CameraAutoWhiteBalanceCalibratedEvent.EVENT_NAME, MapBuilder.of("registrationName", "onAutoWhiteBalanceCalibrated"))
+      .put(CameraWhiteBalanceSampledEvent.EVENT_NAME, MapBuilder.of("registrationName", "onWhiteBalanceSampled"))
       .build()
 
   override fun getName(): String = TAG

@@ -72,6 +72,7 @@ RCT_REMAP_VIEW_PROPERTY(onStopped, onStoppedEvent, RCTDirectEventBlock);
 RCT_REMAP_VIEW_PROPERTY(onPreviewStarted, onPreviewStartedEvent, RCTDirectEventBlock);
 RCT_REMAP_VIEW_PROPERTY(onPreviewStopped, onPreviewStoppedEvent, RCTDirectEventBlock);
 RCT_REMAP_VIEW_PROPERTY(onAutoWhiteBalanceCalibrated, onAutoWhiteBalanceCalibratedEvent, RCTDirectEventBlock);
+RCT_REMAP_VIEW_PROPERTY(onWhiteBalanceSampled, onWhiteBalanceSampledEvent, RCTDirectEventBlock);
 RCT_REMAP_VIEW_PROPERTY(onShutter, onShutterEvent, RCTDirectEventBlock);
 RCT_REMAP_VIEW_PROPERTY(onOutputOrientationChanged, onOutputOrientationChangedEvent, RCTDirectEventBlock);
 RCT_REMAP_VIEW_PROPERTY(onPreviewOrientationChanged, onPreviewOrientationChangedEvent, RCTDirectEventBlock);

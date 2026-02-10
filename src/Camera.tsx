@@ -22,6 +22,7 @@ import type {
   OnErrorEvent,
   OutputOrientationChangedEvent,
   PreviewOrientationChangedEvent,
+  WhiteBalanceSampledEvent,
 } from './NativeCameraView'
 import { NativeCameraView } from './NativeCameraView'
 import { RotationHelper } from './RotationHelper'
@@ -97,6 +98,8 @@ export class Camera extends React.PureComponent<CameraProps, CameraState> {
     this.onStopped = this.onStopped.bind(this)
     this.onPreviewStarted = this.onPreviewStarted.bind(this)
     this.onPreviewStopped = this.onPreviewStopped.bind(this)
+    this.onAutoWhiteBalanceCalibrated = this.onAutoWhiteBalanceCalibrated.bind(this)
+    this.onWhiteBalanceSampled = this.onWhiteBalanceSampled.bind(this)
     this.onShutter = this.onShutter.bind(this)
     this.onOutputOrientationChanged = this.onOutputOrientationChanged.bind(this)
     this.onPreviewOrientationChanged = this.onPreviewOrientationChanged.bind(this)
@@ -529,6 +532,16 @@ export class Camera extends React.PureComponent<CameraProps, CameraState> {
     this.props.onPreviewStopped?.()
   }
 
+  private onAutoWhiteBalanceCalibrated(
+    event: NativeSyntheticEvent<{ temperature?: number; tint?: number }>,
+  ): void {
+    this.props.onAutoWhiteBalanceCalibrated?.(event.nativeEvent)
+  }
+
+  private onWhiteBalanceSampled(event: NativeSyntheticEvent<WhiteBalanceSampledEvent>): void {
+    this.props.onWhiteBalanceSampled?.(event.nativeEvent)
+  }
+
   private onShutter(event: NativeSyntheticEvent<OnShutterEvent>): void {
     this.props.onShutter?.(event.nativeEvent)
   }
@@ -663,11 +676,13 @@ export class Camera extends React.PureComponent<CameraProps, CameraState> {
         onStopped={this.onStopped}
         onPreviewStarted={this.onPreviewStarted}
         onPreviewStopped={this.onPreviewStopped}
+        onAutoWhiteBalanceCalibrated={this.onAutoWhiteBalanceCalibrated}
         onShutter={this.onShutter}
         videoBitRateMultiplier={bitRateMultiplier}
         videoBitRateOverride={bitRateOverride}
         onOutputOrientationChanged={this.onOutputOrientationChanged}
         onPreviewOrientationChanged={this.onPreviewOrientationChanged}
+        onWhiteBalanceSampled={this.onWhiteBalanceSampled}
         onError={this.onError}
         codeScannerOptions={codeScanner}
         enableFrameProcessor={frameProcessor != null}

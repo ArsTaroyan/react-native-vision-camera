@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react'
 import type { LayoutChangeEvent, ViewProps } from 'react-native'
 import type { CameraProps } from '../types/CameraProps'
 import type { ISharedValue } from 'react-native-worklets-core'
-import type { SkImage } from '@shopify/react-native-skia'
+import type { SkImage } from '../types/SkiaTypes'
 import { ReanimatedProxy } from '../dependencies/ReanimatedProxy'
 import { SkiaProxy } from '../dependencies/SkiaProxy'
 

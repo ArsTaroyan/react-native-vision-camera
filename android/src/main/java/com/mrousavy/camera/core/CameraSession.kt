@@ -31,6 +31,7 @@ import com.mrousavy.camera.core.extensions.await
 import com.mrousavy.camera.core.types.Orientation
 import com.mrousavy.camera.core.types.ShutterType
 import com.mrousavy.camera.core.utils.runOnUiThread
+import com.mrousavy.camera.core.preview.ProcessedPreviewPipeline
 import com.mrousavy.camera.frameprocessors.Frame
 import java.io.Closeable
 import kotlinx.coroutines.sync.Mutex
@@ -54,6 +55,7 @@ class CameraSession(internal val context: Context, internal val callback: Callba
   internal var photoOutput: ImageCapture? = null
   internal var videoOutput: VideoCapture<Recorder>? = null
   internal var frameProcessorOutput: ImageAnalysis? = null
+  internal var processedPreviewOutput: ImageAnalysis? = null
   internal var codeScannerOutput: ImageAnalysis? = null
   internal var currentUseCases: List<UseCase> = emptyList()
 
@@ -75,6 +77,7 @@ class CameraSession(internal val context: Context, internal val callback: Callba
   private val autoWhiteBalanceHandler = Handler(Looper.getMainLooper())
   private var autoWhiteBalanceLockRunnable: Runnable? = null
   private var autoWhiteBalanceCalibrateRunnable: Runnable? = null
+  internal var processedPreviewPipeline: ProcessedPreviewPipeline? = null
 
   // Threading
   internal val mainExecutor = ContextCompat.getMainExecutor(context)
@@ -97,6 +100,7 @@ class CameraSession(internal val context: Context, internal val callback: Callba
     isDestroyed = true
     resetAutoWhiteBalanceLock()
     resetAutoWhiteBalanceCalibration()
+    processedPreviewPipeline?.resetCalibration()
     orientationManager.stopOrientationUpdates()
     runOnUiThread {
       lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
@@ -222,6 +226,7 @@ class CameraSession(internal val context: Context, internal val callback: Callba
       applyAutoExposureLock(true)
       applyAutoWhiteBalanceLock(true)
       autoWhiteBalanceCalibrated = true
+      processedPreviewPipeline?.requestCalibration()
       callback.onAutoWhiteBalanceCalibrated()
     }
     autoWhiteBalanceCalibrateRunnable = runnable
@@ -279,6 +284,7 @@ class CameraSession(internal val context: Context, internal val callback: Callba
     orientationManager.previewOrientation.toSurfaceRotation().let { previewRotation ->
       previewOutput?.targetRotation = previewRotation
       codeScannerOutput?.targetRotation = previewRotation
+      processedPreviewOutput?.targetRotation = previewRotation
     }
     // Outputs Orientation
     orientationManager.outputOrientation.toSurfaceRotation().let { outputRotation ->
@@ -299,5 +305,7 @@ class CameraSession(internal val context: Context, internal val callback: Callba
     fun onPreviewOrientationChanged(previewOrientation: Orientation)
     fun onCodeScanned(codes: List<Barcode>, scannerFrame: CodeScannerFrame)
     fun onAutoWhiteBalanceCalibrated()
+    fun onProcessedPreviewCalibrationApplied()
+    fun onWhiteBalanceSampled(r: Int, g: Int, b: Int)
   }
 }

@@ -111,3 +111,12 @@ class CameraAutoWhiteBalanceCalibratedEvent(surfaceId: Int, viewId: Int, private
     const val EVENT_NAME = "topCameraAutoWhiteBalanceCalibrated"
   }
 }
+
+class CameraWhiteBalanceSampledEvent(surfaceId: Int, viewId: Int, private val data: WritableMap) :
+  Event<CameraWhiteBalanceSampledEvent>(surfaceId, viewId) {
+  override fun getEventName() = EVENT_NAME
+  override fun getEventData() = data
+  companion object {
+    const val EVENT_NAME = "topCameraWhiteBalanceSampled"
+  }
+}

@@ -23,11 +23,18 @@ export interface OutputOrientationChangedEvent {
 export interface PreviewOrientationChangedEvent {
   previewOrientation: Orientation
 }
+export interface WhiteBalanceSampledEvent {
+  r: number
+  g: number
+  b: number
+}
 export type NativeCameraViewProps = Omit<
   CameraProps,
   | 'device'
   | 'onInitialized'
   | 'onError'
+  | 'onAutoWhiteBalanceCalibrated'
+  | 'onWhiteBalanceSampled'
   | 'onShutter'
   | 'onOutputOrientationChanged'
   | 'onPreviewOrientationChanged'
@@ -55,9 +62,11 @@ export type NativeCameraViewProps = Omit<
   onStopped?: (event: NativeSyntheticEvent<void>) => void
   onPreviewStarted?: (event: NativeSyntheticEvent<void>) => void
   onPreviewStopped?: (event: NativeSyntheticEvent<void>) => void
+  onAutoWhiteBalanceCalibrated?: (event: NativeSyntheticEvent<{ temperature?: number; tint?: number }>) => void
   onShutter?: (event: NativeSyntheticEvent<OnShutterEvent>) => void
   onOutputOrientationChanged?: (event: NativeSyntheticEvent<OutputOrientationChangedEvent>) => void
   onPreviewOrientationChanged?: (event: NativeSyntheticEvent<PreviewOrientationChangedEvent>) => void
+  onWhiteBalanceSampled?: (event: NativeSyntheticEvent<WhiteBalanceSampledEvent>) => void
 }
 
 // requireNativeComponent automatically resolves 'CameraView' to 'CameraViewManager'
