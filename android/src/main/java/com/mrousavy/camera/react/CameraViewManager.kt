@@ -175,7 +175,7 @@ class CameraViewManager : ViewGroupManager<CameraView>() {
 
   @ReactProp(name = "photoHdr")
   fun setPhotoHdr(view: CameraView, photoHdr: Boolean) {
-    view.photoHdr = photoHdr
+    view.photoHdr = false
   }
 
   @ReactProp(name = "photoQualityBalance")
@@ -190,7 +190,7 @@ class CameraViewManager : ViewGroupManager<CameraView>() {
 
   @ReactProp(name = "videoHdr")
   fun setVideoHdr(view: CameraView, videoHdr: Boolean) {
-    view.videoHdr = videoHdr
+    view.videoHdr = false
   }
 
   @ReactProp(name = "videoBitRateOverride", defaultDouble = -1.0)

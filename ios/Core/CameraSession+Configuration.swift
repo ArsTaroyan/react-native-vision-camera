@@ -250,6 +250,16 @@ extension CameraSession {
    Configures format-dependant "side-props" (`fps`, `lowLightBoost`)
    */
   func configureSideProps(configuration: CameraConfiguration, device: AVCaptureDevice) throws {
+    // Force-disable platform HDR controls so the session always stays in SDR.
+    if #available(iOS 13.0, *) {
+      if device.automaticallyAdjustsVideoHDREnabled {
+        device.automaticallyAdjustsVideoHDREnabled = false
+      }
+      if device.isVideoHDREnabled {
+        device.isVideoHDREnabled = false
+      }
+    }
+
     // Configure FPS
     if let minFps = configuration.minFps,
        let maxFps = configuration.maxFps {

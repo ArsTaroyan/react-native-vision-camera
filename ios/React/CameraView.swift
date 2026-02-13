@@ -198,6 +198,10 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
     let now = DispatchTime.now()
     currentConfigureCall = now
 
+    // HDR is hard-disabled at library level.
+    videoHdr = false
+    photoHdr = false
+
     if changedProps.contains("autoExposure") {
       if !lastAutoExposureProp, autoExposure, !autoWhiteBalanceCalibrateOnWhite {
         forceAutoExposureOff = false
@@ -244,7 +248,7 @@ public final class CameraView: UIView, CameraSessionDelegate, PreviewViewDelegat
       if video || enableFrameProcessor {
         config.video = .enabled(config: CameraConfiguration.Video(pixelFormat: getPixelFormat(),
                                                                   enableBufferCompression: enableBufferCompression,
-                                                                  enableHdr: false, // HDR disabled at library level
+                                                                  enableHdr: false,
                                                                   enableFrameProcessor: enableFrameProcessor))
       } else {
         config.video = .disabled
